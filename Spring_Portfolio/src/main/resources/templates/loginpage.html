@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Login Form</title>
+    <link rel="stylesheet" href="https://unpkg.com/purecss@2.0.6/build/pure-min.css">
+    <style>
+        body { padding: 20px; }
+        .message { margin-bottom: 10px; font-weight: bold; }
+        .message.error { color: red; }
+        .message.success { color: green; }
+        .login-container { max-width: 400px; margin: auto; }
+        fieldset { border: 1px solid #ccc; padding: 20px; }
+        legend { font-size: 1.2em; font-weight: bold; }
+        input[type="text"], input[type="password"] { width: 100%; margin-bottom: 10px; padding: 8px; }
+        button { width: 100%; padding: 10px; }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+
+        <div th:if="${param.error}" class="message error">
+            ❌ 登入失敗！帳號或密碼錯誤
+        </div>
+
+        <div th:if="${param.logout}" class="message success">
+            ✅ 您已成功登出
+        </div>
+
+<!--        <form class="pure-form pure-form-stacked" method="post" action="/portfolio/login">-->
+	<form class="pure-form pure-form-stacked" method="post" th:action="@{/login}">
+
+            <fieldset>
+                <legend>Login Form</legend>
+
+                <label for="username">Username</label>
+                <input type="text" id="username" name="username" placeholder="輸入帳號" required />
+
+                <label for="password">Password</label>
+                <input type="password" id="password" name="password" placeholder="輸入密碼" required />
+
+                <!-- CSRF Token -->
+                <!-- <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" /> -->
+
+                <label>
+                    <input type="checkbox" name="remember-me" value="true" /> Remember me
+                </label>
+
+                <p></p>
+                <button type="submit" class="pure-button pure-button-primary">Sign in</button>
+            </fieldset>
+        </form>
+
+        <script>
+            document.querySelector('form').addEventListener('submit', function(e) {
+                console.log('表單正在提交...');
+                console.log('Action:', this.action);
+                console.log('Method:', this.method);
+
+                const formData = new FormData(this);
+                for (let [key, value] of formData.entries()) {
+                    if (key !== 'password') {
+                        console.log(key + ': ' + value);
+                    } else {
+                        console.log(key + ': [已隱藏]');
+                    }
+                }
+            });
+        </script>
+    </div>
+</body>
+</html>

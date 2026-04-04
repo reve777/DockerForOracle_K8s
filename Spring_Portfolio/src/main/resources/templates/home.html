@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>首頁</title>
+
+    <!-- header fragment -->
+    <th:block th:replace="~{include/header :: headerContent}"></th:block>
+</head>
+<body>
+    <!-- navbar fragment -->
+    <th:block th:replace="~{include/navbar :: navbar}"></th:block>
+
+    <div class="container mt-5">
+        <h1>金融下單系統 - 資料表關聯圖</h1>
+        <!-- Bootstrap 5: img-fluid 取代 img-responsive -->
+        <img class="img-fluid" th:src="@{/images/portfolio_tables.png}" alt="Portfolio ERD"/>
+    </div>
+
+    <!-- footer fragment -->
+    <th:block th:replace="~{include/footer :: footer}"></th:block>
+</body>
+</html>

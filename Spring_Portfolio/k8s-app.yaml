@@ -1,0 +1,194 @@
+# 1. Nginx 設定檔 (ConfigMap)
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: nginx-config
+  namespace: ivan
+data:
+  default.conf: |
+    server {
+        listen 80;
+        server_name ivan-test.com;
+        return 301 https://$host$request_uri;
+    }
+    server {
+        listen 443 ssl;
+        server_name ivan-test.com;
+        ssl_certificate     /etc/nginx/ssl/server.crt;
+        ssl_certificate_key /etc/nginx/ssl/server.key;
+
+        location /portfolio {
+            proxy_pass http://portfolio-service:8084/portfolio;
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_buffer_size 128k;
+            proxy_buffers 4 256k;
+            proxy_busy_buffers_size 256k;
+        }
+
+        location / {
+            return 301 https://$host/portfolio/page/home;
+        }
+    }
+
+---
+# 2. Oracle 資料庫 (無狀態部署)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oracle21c
+  namespace: ivan
+spec:
+  selector:
+    matchLabels:
+      app: oracle
+  template:
+    metadata:
+      labels:
+        app: oracle
+    spec:
+      containers:
+      - name: oracle
+        image: container-registry.oracle.com/database/express:21.3.0-xe
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 1521
+        env:
+        - name: ORACLE_PASSWORD
+          value: "1234"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oracle-service
+  namespace: ivan
+spec:
+  selector:
+    app: oracle
+  ports:
+    - protocol: TCP
+      port: 1521
+      targetPort: 1521
+
+---
+# 3. Spring Boot 應用程式 (更版重點區)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: portfolio-app
+  namespace: ivan
+spec:
+  # 建議維持 1 個副本，避免 Oracle 負載過重
+  replicas: 1 
+  selector:
+    matchLabels:
+      app: portfolio
+  template:
+    metadata:
+      labels:
+        app: portfolio
+    spec:
+      containers:
+      - name: portfolio-container
+        # -----------------------------------------------------------
+        # [重要] 每次更新 Java 程式並 docker build 後，請修改下方的版本號
+        # 例如: v1 -> v2 -> v3
+        # -----------------------------------------------------------
+        image: spring_portfolio-portfolio-app:v1 
+        
+        # 設為 IfNotPresent 配合版本號使用，效能最好且最穩定
+        imagePullPolicy: IfNotPresent 
+        
+        ports:
+        - containerPort: 8084
+        
+        # 加入 Readiness Probe：確保 Spring 完全啟動後才切換流量，避免更版時網頁報錯
+        readinessProbe:
+          httpGet:
+            path: /portfolio/page/home
+            port: 8084
+          initialDelaySeconds: 40 # 給 Spring Boot 足夠的時間初始化 Oracle 連線
+          periodSeconds: 10
+
+        env:
+        - name: SPRING_DATASOURCE_URL
+          value: "jdbc:oracle:thin:@oracle-service:1521/xepdb1"
+        - name: SPRING_DATASOURCE_USERNAME
+          value: "system"
+        - name: SPRING_DATASOURCE_PASSWORD
+          value: "1234"
+        - name: SPRING_JPA_HIBERNATE_DDL_AUTO
+          value: "update"
+        - name: SPRING_JPA_DATABASE_PLATFORM
+          value: "org.hibernate.dialect.OracleDialect"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: portfolio-service
+  namespace: ivan
+spec:
+  selector:
+    app: portfolio
+  ports:
+    - protocol: TCP
+      port: 8084
+      targetPort: 8084
+
+---
+# 4. Nginx 代理伺服器
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: nginx-proxy
+  namespace: ivan
+spec:
+  selector:
+    matchLabels:
+      app: nginx
+  template:
+    metadata:
+      labels:
+        app: nginx
+    spec:
+      containers:
+      - name: nginx
+        image: nginx:alpine
+        ports:
+        - containerPort: 80
+        - containerPort: 443
+        volumeMounts:
+        - name: config-volume
+          mountPath: /etc/nginx/conf.d/default.conf
+          subPath: default.conf
+        - name: ssl-volume
+          mountPath: /etc/nginx/ssl
+          readOnly: true
+      volumes:
+      - name: config-volume
+        configMap:
+          name: nginx-config
+      - name: ssl-volume
+        secret:
+          secretName: nginx-ssl-secret
+
+---
+# 5. Nginx 對外入口
+apiVersion: v1
+kind: Service
+metadata:
+  name: nginx-entry
+  namespace: ivan
+spec:
+  type: LoadBalancer
+  selector:
+    app: nginx
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+    - name: https
+      port: 443
+      targetPort: 443

@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>TStock 股票、指數、匯率</title>
+
+<!-- header fragment -->
+<th:block th:replace="~{./include/header :: headerContent}"></th:block>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+
+// 將表單轉成 JSON 物件
+$.fn.serializeObject = function () {
+    var o = {};
+    var a = this.serializeArray();
+    $.each(a, function () {
+        if (o[this.name]) {
+            if (!o[this.name].push) {
+                o[this.name] = [o[this.name]];
+            }
+            o[this.name].push(this.value || '');
+        } else {
+            o[this.name] = this.value || '';
+        }
+    });
+    return o;
+};
+
+$(document).ready(function () {
+
+    // 點擊表格列讀取資料
+    $("#myTable").on("click", "tr", function () {
+        var id = $(this).find('td').eq(0).text().trim();
+        if(!id) return;
+
+        $.get("/portfolio/tstock/" + id, function (data) {
+            $('#myform').trigger("reset");
+            $('#add').attr('disabled', true);
+            $('#upt').attr('disabled', false);
+            $('#del').attr('disabled', false);
+
+            $("#id").val(data.id);
+            $("#name").val(data.name);
+            $("#symbol").val(data.symbol);
+            $("#classify_id").val(data.classify.id);
+        });
+    });
+
+    // 新增
+    $("#add").on("click", function () {
+        var jsonObj = $('#myform').serializeObject();
+        $.ajax({
+            url: "/portfolio/tstock/",
+            type: "POST",
+            contentType: "application/json; charset=utf-8",
+            data: JSON.stringify(jsonObj),
+            success: function () { initPageSetup(); },
+            error: function(e){ console.error(e); alert("新增失敗"); }
+        });
+    });
+
+    // 修改
+    $("#upt").on("click", function () {
+        var jsonObj = $('#myform').serializeObject();
+        $.ajax({
+            url: "/portfolio/tstock/" + jsonObj.id,
+            type: "PUT",
+            contentType: "application/json; charset=utf-8",
+            data: JSON.stringify(jsonObj),
+            success: function () { initPageSetup(); },
+            error: function(e){ console.error(e); alert("修改失敗"); }
+        });
+    });
+
+    // 刪除
+    $("#del").on("click", function () {
+        var id = $("#id").val();
+        $.ajax({
+            url: "/portfolio/tstock/" + id,
+            type: "DELETE",
+            success: function () { initPageSetup(); },
+            error: function(e){ console.error(e); alert("刪除失敗"); }
+        });
+    });
+
+    // 重置
+    $("#rst").on("click", function() { initPageSetup(); });
+
+    // Classify 下拉選單
+    $.get("/portfolio/classify/", function (datas) {
+        $('#classify_id').empty();
+        datas.forEach(function (data) {
+            $('#classify_id').append('<option value="' + data.id + '">' + data.name + '</option>');
+        });
+    });
+
+    // 初始化頁面
+    initPageSetup();
+});
+
+function initPageSetup() {
+    $('#myform').trigger("reset");
+    $('#add').attr('disabled', false);
+    $('#upt').attr('disabled', true);
+    $('#del').attr('disabled', true);
+    table_list();
+}
+
+function table_list() {
+    $.get("/portfolio/tstock/", function (datas) {
+        $("#myTable tbody").empty();
+        datas.forEach(function (item) {
+            var html = '<tr>' +
+                '<td>' + item.id + '</td>' +
+                '<td>' + item.name + '</td>' +
+                '<td>' + item.symbol + '</td>' +
+                '<td>' + item.classify.name + '</td>' +
+                '</tr>';
+            $("#myTable tbody").append(html);
+        });
+    });
+}
+</script>
+</head>
+<body>
+
+<!-- navbar -->
+<th:block th:replace="~{./include/navbar :: navbar}"></th:block>
+
+<div class="container mt-5">
+    <h1 class="mb-4">TStock 股票、指數、匯率</h1>
+
+    <form id="myform">
+        <div class="mb-3 row">
+            <label for="id" class="col-sm-2 col-form-label">ID</label>
+            <div class="col-sm-10">
+                <input id="id" name="id" readonly class="form-control"/>
+            </div>
+        </div>
+
+        <div class="mb-3 row">
+            <label for="name" class="col-sm-2 col-form-label">商品名稱</label>
+            <div class="col-sm-10">
+                <input type="text" id="name" name="name" class="form-control"/>
+            </div>
+        </div>
+
+        <div class="mb-3 row">
+            <label for="symbol" class="col-sm-2 col-form-label">商品代號</label>
+            <div class="col-sm-10">
+                <input type="text" id="symbol" name="symbol" class="form-control"/>
+            </div>
+        </div>
+
+        <div class="mb-3 row">
+            <label for="classify_id" class="col-sm-2 col-form-label">商品分類</label>
+            <div class="col-sm-10">
+                <select id="classify_id" name="classify_id" class="form-select"></select>
+            </div>
+        </div>
+
+        <div class="mb-3 row">
+            <div class="col-sm-10 offset-sm-2">
+                <button id="add" type="button" class="btn btn-success">新增</button>
+                <button id="upt" type="button" class="btn btn-info">修改</button>
+                <button id="del" type="button" class="btn btn-danger">刪除</button>
+                <button id="rst" type="button" class="btn btn-warning">重置</button>
+            </div>
+        </div>
+    </form>
+
+    <h2 class="mt-5">TStock 股票、指數、匯率列表</h2>
+
+    <div class="table-responsive">
+        <table id="myTable" class="table table-striped table-hover table-bordered">
+            <thead class="table-light">
+                <tr>
+                    <th>id</th>
+                    <th>name</th>
+                    <th>symbol</th>
+                    <th>classify name</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- footer -->
+<th:block th:replace="~{./include/footer :: footer}"></th:block>
+
+</body>
+</html>

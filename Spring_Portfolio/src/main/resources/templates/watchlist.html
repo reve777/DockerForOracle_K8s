@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>Watch List</title>
+
+<!-- Header include -->
+<th:block th:replace="~{./include/header :: headerContent}"></th:block>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/css/bootstrap.min.css">
+
+<style>
+/* 強制表格欄位對齊 */
+.table th, .table td {
+    vertical-align: middle;
+}
+.table td.number-right,
+.table th.number-right {
+    text-align: right;
+    font-family: monospace;
+}
+.table td.text-center,
+.table th.text-center {
+    text-align: center;
+}
+.table td.symbol-cell {
+    cursor: pointer;
+    color: #0d6efd;
+}
+.table td.symbol-cell:hover {
+    text-decoration: underline;
+}
+</style>
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+var session_watch_id = '[[${watchId}]]';
+
+$(document).ready(function () {
+    loadWatchList();
+
+    // 點擊代號查歷史走勢
+    $("#myTable").on("click", ".symbol-cell", function () {
+        var symbol = $(this).text();
+        queryHistQuotes(symbol);
+    });
+
+    // 下單按鈕
+    $("#myTable").on("click", ".buy-btn", function () {
+        var tstock_id = $(this).attr('tstock_id');
+        if (!tstock_id) return;
+        if (confirm("是否要買進？")) {
+            let amount = prompt("請輸入購買股數(請以1000股為單位)？", "1000");
+            if (!amount) return;
+            if (parseInt(amount) % 1000 !== 0) {
+                alert('請輸入1000的倍數(1張=1000股)');
+                return;
+            }
+            $.ajax({
+                url: "/portfolio/order/buy/" + tstock_id + "/" + amount,
+                type: "GET",
+                success: function(response) {
+                    alert('成交回報: ' + response);
+                },
+                error: function() {
+                    alert('下單失敗');
+                }
+            });
+        }
+    });
+});
+
+// --------------------
+// 載入 Watch List
+function loadWatchList() {
+    $.get("/portfolio/watch/" + session_watch_id, function (data) {
+        $("#myTable tbody").empty();
+        if (!data.tstocks || data.tstocks.length === 0) return;
+
+        data.tstocks.forEach(function(item) {
+            let buybtn_html = item.classify.tx ? `<button class="btn btn-success buy-btn" tstock_id="${item.id}">下單</button>` : "";
+            let html = `<tr>
+                <td class="text-center">${item.classify.name}</td>
+                <td>${item.name}</td>
+                <td class="symbol-cell">${item.symbol}</td>
+                <td class="number-right">${item.preClosed}</td>
+                <td class="number-right">${item.price}</td>
+                <td class="number-right">${item.changePrice}</td>
+                <td class="number-right">${item.changeInPercent}</td>
+                <td class="number-right">${numberFormat(item.volume)}</td>
+                <td class="text-center">${getYMDHMS(item.transactionDate)}</td>
+                <td class="text-center">${buybtn_html}</td>
+            </tr>`;
+            $("#myTable tbody").append(html);
+        });
+
+        // 初次載入第一支股票的 K 線圖
+        var firstSymbol = data.tstocks[0].symbol;
+        if (firstSymbol) queryHistQuotes(firstSymbol);
+    });
+}
+
+// --------------------
+// 格式化數字
+function numberFormat(num) {
+    return num ? num.toLocaleString() : '0';
+}
+
+// --------------------
+// 轉換 ISO 日期到 YYYY-MM-DD HH:mm:ss
+function getYMDHMS(dateStr) {
+    if (!dateStr) return '';
+    var dt = new Date(dateStr);
+    return dt.getFullYear() + '-' + pad(dt.getMonth()+1) + '-' + pad(dt.getDate()) + ' ' +
+           pad(dt.getHours()) + ':' + pad(dt.getMinutes()) + ':' + pad(dt.getSeconds());
+}
+
+function pad(num) { return num < 10 ? '0' + num : num; }
+
+// --------------------
+// K 線圖繪圖
+google.charts.load('current', {packages: ['corechart']});
+google.charts.setOnLoadCallback(function(){});
+
+function queryHistQuotes(symbol) {
+    $("#container").empty(); // 清空舊圖
+    $.get("/portfolio/price/histquotes/" + symbol, function (quotes) {
+        drawChart(symbol, quotes);
+    });
+}
+
+function drawChart(symbol, quotes) {
+    if (!quotes || quotes.length === 0) return;
+
+    var data = new google.visualization.DataTable();
+    data.addColumn('string', 'Date');
+    data.addColumn('number', 'High');
+    data.addColumn('number', 'Open');
+    data.addColumn('number', 'Close');
+    data.addColumn('number', 'Low');
+    data.addColumn('number', 'AdjClose');
+    data.addColumn('number', 'Volume');
+
+    quotes.forEach(function(item) {
+        data.addRow([
+            item.date,
+            item.high ? parseFloat(item.high) : 0,
+            item.open ? parseFloat(item.open) : 0,
+            item.close ? parseFloat(item.close) : 0,
+            item.low ? parseFloat(item.low) : 0,
+            item.adjClose ? parseFloat(item.adjClose) : 0,
+            item.volume ? parseInt(item.volume) : 0
+        ]);
+    });
+
+    var options = {
+        title: symbol + ' 日K線圖',
+        legend: 'none',
+        vAxes: [
+            {},
+            {minValue: 1, maxValue: Math.max(...quotes.map(q=>q.volume||0))}
+        ],
+        series: {
+            1: {targetAxisIndex: 0, type: 'line', color: '#e7711b'},
+            2: {targetAxisIndex: 1, type: 'bars', color: '#cccccc'}
+        },
+        candlestick: {
+            fallingColor: {strokeWidth: 0, fill: '#0f9d58'},
+            risingColor: {strokeWidth: 0, fill: '#a52714'}
+        },
+        chartArea: {left: 50, width:'80%', height:'70%'}
+    };
+
+    var chart = new google.visualization.CandlestickChart(document.getElementById('container'));
+    chart.draw(data, options);
+}
+/*]]>*/
+</script>
+</head>
+
+<body>
+<!-- Navbar include -->
+<th:block th:replace="~{./include/navbar :: navbar}"></th:block>
+
+<div class="container" style="padding-top: 70px;">
+    <h1>Watch List</h1>
+    <table id="myTable" class="table table-striped table-responsive-md">
+        <thead>
+            <tr>
+                <th class="text-center">分類</th>
+                <th>名稱</th>
+                <th>代號</th>
+                <th class="number-right">昨收</th>
+                <th class="number-right">報價</th>
+                <th class="number-right">漲跌</th>
+                <th class="number-right">漲跌幅%</th>
+                <th class="number-right">交易量</th>
+                <th class="text-center">交易時間</th>
+                <th class="text-center">買進</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <div id="container" style="width:90%; height:400px; margin:10px auto;"></div>
+</div>
+
+<!-- Footer include -->
+<th:block th:replace="~{./include/footer :: footer}"></th:block>
+</body>
+</html>

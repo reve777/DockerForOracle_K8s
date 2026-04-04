@@ -1,0 +1,155 @@
+<header xmlns:th="http://www.thymeleaf.org" th:fragment="navbar">
+    <!-- Fixed navbar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
+        <div class="container-fluid">
+
+            <!-- ========================
+                 Navbar brand / 登入者顯示
+                 ======================== -->
+            <a class="navbar-brand" th:if="${investorId != null}" href="#">
+                Hi <span th:text="${username}"></span>
+            </a>
+            <a class="navbar-brand" th:if="${investorId == null}" href="#">
+                Hi Guest
+            </a>
+
+            <!-- Mobile toggle -->
+            <button class="navbar-toggler" type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#navbarSupportedContent">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+
+            <!-- ========================
+                 Navbar links
+                 ======================== -->
+            <div class="collapse navbar-collapse" id="navbarSupportedContent">
+
+                <!-- 左側主功能 -->
+                <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+
+                    <li class="nav-item">
+                        <a class="nav-link active" th:href="@{/page/home}">Home</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link" th:href="@{/page/asset}">我的資產</a>
+                    </li>
+
+                    <li class="nav-item">
+                        <a class="nav-link"
+                           th:href="@{/page/watchlist(watch_id=${watchId})}">
+                            商品行情報價
+                        </a>
+                    </li>
+
+                    <!-- ✅【重點修改 ①】
+                         ❌ 原本用 iframe 觸發後端
+                         ✅ 改成 JS fetch 觸發
+                    -->
+                    <li class="nav-item">
+                        <a class="nav-link" href="javascript:void(0)"
+                           onclick="refreshPrices()">
+                            更新報價
+                        </a>
+                    </li>
+
+                </ul>
+
+                <!-- 右側功能 -->
+                <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+
+                    <!-- 功能服務下拉 -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#"
+                           data-bs-toggle="dropdown">
+                            功能服務
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" th:href="@{/page/classify}">
+                                <strong>Classify</strong> 商品分類</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" th:href="@{/page/investor}">
+                                <strong>Investor</strong> 投資人</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" th:href="@{/page/tstock}">
+                                <strong>TStock</strong> 股票、指數、匯率</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" th:href="@{/page/watch}">
+                                <strong>Watch</strong> 選擇觀察商品</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 已登入 -->
+                    <li class="nav-item dropdown" th:if="${investorId != null}">
+                        <a class="nav-link dropdown-toggle" href="#"
+                           data-bs-toggle="dropdown">
+                            Hi <span th:text="${username}"></span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" th:href="@{/page/profile}">
+                                個人資料</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" th:href="@{/logout}">
+                                登出</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- 未登入 -->
+                    <li class="nav-item" th:if="${investorId == null}">
+                        <a class="nav-link" th:href="@{/loginpage}">登入</a>
+                    </li>
+
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ========================
+         ✅【重點修改 ②】
+         ❌ 完全移除 iframe
+         原因：Spring Security 預設 X-Frame-Options: DENY
+         ======================== -->
+
+    <!-- ========================
+         前端 JS 區
+         ======================== -->
+    <script th:inline="javascript">
+    /*<![CDATA[*/
+
+    // ---------- sessionStorage ----------
+    var username   = /*[[${username}]]*/ null;
+    var investorId = /*[[${investorId}]]*/ null;
+    var watchId    = /*[[${watchId}]]*/ null;
+
+    if (username && investorId) {
+        sessionStorage.setItem('username', username);
+        sessionStorage.setItem('investorId', investorId);
+        sessionStorage.setItem('watchId', watchId);
+    }
+
+    // ---------- ✅【重點修改 ③】
+    // 用 fetch 呼叫後端 /price/refresh
+    function refreshPrices() {
+        fetch("/portfolio/price/refresh")
+            .then(res => {
+                if (!res.ok) throw new Error("更新報價失敗");
+                return res.json();
+            })
+            .then(data => {
+                console.log("即時報價更新成功", data);
+
+                // 🔔 你可以在這裡：
+                // 1. 更新 table
+                // 2. 發送 event
+                // 3. 存入 sessionStorage
+            })
+            .catch(err => {
+                console.error(err);
+                alert("更新報價失敗，請稍後再試");
+            });
+    }
+
+    /*]]>*/
+    </script>
+</header>

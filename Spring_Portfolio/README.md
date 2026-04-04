@@ -1,4 +1,7 @@
-# portfolio_2025（Ajax + Json + RESTFul）
+# portfolio_2026（Ajax + Json + RESTFul）  
+更新:增加測試Docker BY K8s use Nginx+Docker for OracleDB   
+	1.CICD Kubernetes(K8s) >> yaml  
+	2.Docker images >> containers  
 更新 :Spirng boot 2 升級 Spring boot 3 & Security 套件使用對應依賴，更新yahoo OPENAPI 套件
       JDK 8 升級 JDK 17
 portfolio_2025 <p/>  

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>Classify 商品分類管理</title>
+
+    <th:block th:replace="~{./include/header :: headerContent}"></th:block>
+
+    <script th:inline="javascript">
+    /*<![CDATA[*/
+
+    /**
+     * 將表單資料轉為 JSON 物件
+     */
+    $.fn.serializeObject = function () {
+        var o = {};
+        var a = this.serializeArray();
+        $.each(a, function () {
+            if (o[this.name]) {
+                if (!o[this.name].push) o[this.name] = [o[this.name]];
+                o[this.name].push(this.value || '');
+            } else {
+                o[this.name] = ($(this).attr('type') === 'checkbox') ? $(this).is(':checked') : (this.value || '');
+            }
+        });
+        return o;
+    };
+
+    $(document).ready(function () {
+        // 💡 全域設定：自動在每個 Ajax 請求 Header 加入 CSRF Token
+        var token = $("meta[name='_csrf']").attr("content");
+        var header = $("meta[name='_csrf_header']").attr("content");
+        $(document).ajaxSend(function(e, xhr, options) {
+            if (header && token) {
+                xhr.setRequestHeader(header, token);
+            }
+        });
+
+        // 定義 API 基礎路徑
+        var baseUrl = "/portfolio/excel/classify";
+
+        // 1. 點擊表格列載入資料
+        $("#myTable").on("click", "tr", function () {
+            var id = $(this).find('td').eq(0).text().trim();
+            if (!id) return;
+            $.get(baseUrl + "/" + id, function (data) {
+                $('#add').attr('disabled', true);
+                $('#upt, #del').attr('disabled', false);
+                $("#id").val(data.id);
+                $("#name").val(data.name);
+                $("#tx").prop('checked', data.tx);
+            });
+        });
+
+        // 2. CRUD 按鈕
+        $("#add").on("click", function () { sendAjax("POST", baseUrl + "/"); });
+        $("#upt").on("click", function () { sendAjax("PUT", baseUrl + "/" + $("#id").val()); });
+        $("#del").on("click", function () { 
+            if(confirm("確定要刪除此分類嗎？")) {
+                sendAjax("DELETE", baseUrl + "/" + $("#id").val()); 
+            }
+        });
+        $("#rst").on("click", function () { initPageSetup(); });
+
+        // 3. Excel 匯入
+        $("#importExcel").on("click", function () {
+            var fileInput = $('#excelFile')[0];
+            if (fileInput.files.length === 0) { alert("請先選擇一個 Excel 檔案"); return; }
+
+            var formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            var $btn = $(this);
+            $btn.prop('disabled', true).text("處理中...");
+
+            $.ajax({
+                url: baseUrl + "/import",
+                type: "POST",
+                data: formData,
+                processData: false, 
+                contentType: false, 
+                success: function (count) {
+                    alert("匯入成功！共新增 " + count + " 筆資料");
+                    $('#excelFile').val('');
+                    initPageSetup();
+                },
+                error: function (e) {
+                    alert("匯入失敗，請檢查格式 (Status: " + e.status + ")");
+                },
+                complete: function () {
+                    $btn.prop('disabled', false).text("開始匯入");
+                }
+            });
+        });
+
+        // 4. Excel 匯出
+        $("#exportExcel").on("click", function () {
+            window.location.href = baseUrl + "/export";
+        });
+
+        initPageSetup();
+    });
+
+    function sendAjax(type, url) {
+        var jsonObj = $('#myform').serializeObject();
+        $.ajax({
+            url: url,
+            type: type,
+            contentType: "application/json; charset=utf-8",
+            data: JSON.stringify(jsonObj),
+            success: function () { initPageSetup(); },
+            error: function (e) { alert("操作失敗，該分類可能仍有股票連結 (Status: " + e.status + ")"); }
+        });
+    }
+
+    function initPageSetup() {
+        $('#myform').trigger("reset");
+        $("#id").val("");
+        $('#add').attr('disabled', false);
+        $('#upt, #del').attr('disabled', true);
+        table_list();
+    }
+
+    function table_list() {
+        $.get("/portfolio/excel/classify/", function (datas) {
+            var tbody = $("#myTable tbody");
+            tbody.empty();
+            $.each(datas, function (i, item) {
+                var txBadge = item.tx 
+                    ? '<span class="badge bg-success px-3">是</span>' 
+                    : '<span class="badge bg-secondary px-3">否</span>';
+                
+                var html = '<tr>' +
+                    '<td class="fw-bold">' + item.id + '</td>' +
+                    '<td>' + item.name + '</td>' +
+                    '<td>' + txBadge + '</td>' +
+                    '</tr>';
+                tbody.append(html);
+            });
+        });
+    }
+    /*]]>*/
+    </script>
+</head>
+<body class="bg-light">
+
+<th:block th:replace="~{./include/navbar :: navbar}"></th:block>
+
+<div class="container pt-5 mt-4 pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3"><img width="40" th:src="@{/images/classify.png}" class="me-2"/>Classify 商品分類管理</h1>
+        <div class="d-flex border p-2 rounded bg-white shadow-sm align-items-center">
+            <label class="small fw-bold me-2 mb-0 text-nowrap">Excel：</label>
+            <input type="file" id="excelFile" class="form-control form-control-sm me-2" accept=".xlsx" style="width: 180px;">
+            <button id="importExcel" class="btn btn-primary btn-sm text-nowrap me-2">開始匯入</button>
+            <button id="exportExcel" class="btn btn-outline-success btn-sm text-nowrap">
+                匯出 Excel
+            </button>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0">分類資料編輯</h5>
+        </div>
+        <div class="card-body p-4">
+            <form id="myform">
+                <div class="row g-4">
+                    <div class="col-md-2">
+                        <label for="id" class="form-label fw-bold">ID</label>
+                        <input id="id" name="id" readonly class="form-control bg-light" placeholder="自動生成"/>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="name" class="form-label fw-bold">分類名稱</label>
+                        <input type="text" id="name" name="name" class="form-control" placeholder="請輸入分類名稱 (例如: 股票、ETF)" required/>
+                    </div>
+                    <div class="col-md-4 d-flex align-items-center mt-auto">
+                        <div class="form-check form-switch mb-2 ms-2">
+                            <input class="form-check-input" type="checkbox" id="tx" name="tx">
+                            <label class="form-check-label fw-bold" for="tx">支援交易 (TX)</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="mt-4 pt-2">
+                    <button id="add" type="button" class="btn btn-success px-4 me-2">新增</button>
+                    <button id="upt" type="button" class="btn btn-info text-white px-4 me-2">修改</button>
+                    <button id="del" type="button" class="btn btn-danger px-4 me-2">刪除</button>
+                    <button id="rst" type="button" class="btn btn-warning px-4">重置</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0">商品分類列表</h5>
+        </div>
+        <div class="table-responsive">
+            <table id="myTable" class="table table-hover align-middle mb-0">
+                <thead class="table-light text-secondary">
+                    <tr>
+                        <th width="100">ID</th>
+                        <th>分類名稱</th>
+                        <th>支援交易 (TX)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<th:block th:replace="~{./include/footer :: footer}"></th:block>
+
+</body>
+</html>

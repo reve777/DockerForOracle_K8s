@@ -20,11 +20,11 @@ public class PageController {
 	private InvestorService investorService;
 
 	/**
-	 * 共用方法：把 session 的投資人資料放到 model
+	 * 共用方法：確保與 MyLoginSuccessHandler 使用相同的鍵名
 	 */
 	private void addSessionToModel(HttpSession session, Model model) {
+		// 💡 修正：統一鍵名。HTML 裡使用的是 session.investor_id，這裡確保一致
 		model.addAttribute("investorId", session.getAttribute("investor_id"));
-//		System.out.println("investor_username"+session.getAttribute("investor_username"));
 		model.addAttribute("username", session.getAttribute("investor_username"));
 		model.addAttribute("watchId", session.getAttribute("watch_id"));
 	}
@@ -35,54 +35,36 @@ public class PageController {
 		return "home";
 	}
 
-	@RequestMapping("/classify")
-	public String getClassifyPage(HttpSession session, Model model) {
-		addSessionToModel(session, model);
-		return "classify";
-	}
-
-//    @GetMapping("/investor")
-//    public String investorPage(@RequestParam(value = "investor_id", required = false) Integer investorId,
-//                               HttpSession session,
-//                               Model model) {
-//
-//        // 如果有傳參數，更新 session 的投資人資料
-//        if (investorId != null) {
-//            Investor inv = investorService.getById(investorId);
-//            if (inv != null) {
-//                session.setAttribute("investor_id", inv.getId());
-//                session.setAttribute("username", inv.getUsername());
-//
-//                if (inv.getWatchs() != null && !inv.getWatchs().isEmpty()) {
-//                    session.setAttribute("watch_id", inv.getWatchs().iterator().next().getId());
-//                }
-//                session.setAttribute("investor", inv);
-//            }
-//        }
-//
-//        addSessionToModel(session, model);
-//        return "investor";
-//    }
 	@GetMapping("/investor")
 	public String investorPage(@RequestParam(value = "investor_id", required = false) Integer investorId,
-			HttpSession session,
-			Model model) {
+			HttpSession session, Model model) {
 
-		// 如果有傳參數就更新 session
+		// 💡 修正 1：點擊「登入身份」切換時的操作
 		if (investorId != null) {
+			// 💡 修正 2：如果 Service 內部查詢 investor 出現 balance 溢位，這裡會報 500
+			// 確保 Investor Entity 的 balance 欄位已經改為 Long
 			Investor inv = investorService.getById(investorId);
 			if (inv != null) {
+				// 💡 修正 3：統一鍵名，這會讓 HTML 裡的 "當前帳戶" 判定生效
 				session.setAttribute("investor_id", inv.getId());
-				session.setAttribute("username", inv.getUsername());
+				session.setAttribute("investor_username", inv.getUsername());
+
+				// 補齊 watch_id 確保頁面功能正常
+				if (inv.getWatchs() != null && !inv.getWatchs().isEmpty()) {
+					session.setAttribute("watch_id", inv.getWatchs().iterator().next().getId());
+				}
 			}
 		}
 
 		addSessionToModel(session, model);
-
-		// 這邊將 session 的 investorId 放到 HTML
-		model.addAttribute("investorIdFromSession", session.getAttribute("investor_id"));
-
 		return "investor"; // 對應 investor.html
+	}
+
+	// --- 其餘方法保持不變 ---
+	@RequestMapping("/classify")
+	public String getClassifyPage(HttpSession session, Model model) {
+		addSessionToModel(session, model);
+		return "classify";
 	}
 
 	@RequestMapping("/tstock")
@@ -97,24 +79,21 @@ public class PageController {
 		return "watch";
 	}
 
-	/**
-	 * watchlist.html 對應頁面
-	 * 必須傳入 watch_id 參數
-	 */
 	@GetMapping("/watchlist")
 	public String watchlist(HttpSession session, Model model) {
-	    // 從 session 取得 watch_id
-//	    Object watchId = session.getAttribute("watch_id");
-//
-//	    // 放到 Model
-//	    model.addAttribute("watch_id", watchId);
 		addSessionToModel(session, model);
-	    return "watchlist";
+		return "watchlist";
 	}
 
 	@RequestMapping("/asset")
 	public String getAssetPage(HttpSession session, Model model) {
 		addSessionToModel(session, model);
 		return "asset";
+	}
+
+	@RequestMapping("/classifyExcel")
+	public String getlassifyExcelPage(HttpSession session, Model model) {
+		addSessionToModel(session, model);
+		return "classifyExcel";
 	}
 }

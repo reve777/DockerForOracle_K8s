@@ -18,72 +18,79 @@ import jakarta.servlet.http.HttpSession;
 @Service
 public class OrderServiceImpl implements OrderService {
 
-	private final InvestorRepository investorRepository;
-	private final TStockRepository tStockRepository;
-	private final PortfolioRepository portfolioRepository;
+    private final InvestorRepository investorRepository;
+    private final TStockRepository tStockRepository;
+    private final PortfolioRepository portfolioRepository;
 
-	public OrderServiceImpl(InvestorRepository investorRepository,
-			TStockRepository tStockRepository,
-			PortfolioRepository portfolioRepository) {
-		this.investorRepository = investorRepository;
-		this.tStockRepository = tStockRepository;
-		this.portfolioRepository = portfolioRepository;
-	}
+    public OrderServiceImpl(InvestorRepository investorRepository,
+            TStockRepository tStockRepository,
+            PortfolioRepository portfolioRepository) {
+        this.investorRepository = investorRepository;
+        this.tStockRepository = tStockRepository;
+        this.portfolioRepository = portfolioRepository;
+    }
 
-	@Override
-	@Transactional
-	public String buy(HttpSession session, Integer tstockId, Integer amount) {
-		Integer investorId = (Integer) session.getAttribute("investor_id");
-		Investor investor = investorRepository.findById(investorId).orElse(null);
-		if (investor == null)
-			return "Investor None";
+    @Override
+    @Transactional
+    public String buy(HttpSession session, Integer tstockId, Integer amount) {
+        Integer investorId = (Integer) session.getAttribute("investor_id");
+        Investor investor = investorRepository.findById(investorId).orElse(null);
+        if (investor == null)
+            return "Investor None";
 
-		TStock ts = tStockRepository.findById(tstockId).orElse(null);
-		if (ts == null)
-			return "TStock None";
+        TStock ts = tStockRepository.findById(tstockId).orElse(null);
+        if (ts == null)
+            return "TStock None";
 
-		int buyTotalCost = (int) (ts.getPrice().doubleValue() * amount);
-		int balance = investor.getBalance() - buyTotalCost;
-		if (balance < 0)
-			return "Insufficient balance";
+        // 💡 修正 1: 買入成本改用 Long 計算 (避免 Integer 溢位)
+        long buyTotalCost = (long) (ts.getPrice().doubleValue() * amount);
+        
+        // 💡 修正 2: 計算新的餘額
+        long balance = investor.getBalance() - buyTotalCost;
+        if (balance < 0)
+            return "Insufficient balance";
 
-		investor.setBalance(balance);
+        investor.setBalance(balance);
 
-		Portfolio po = new Portfolio();
-		po.setInvestor(investor);
-		po.setTStock(ts);
-		po.setCost(ts.getPrice().doubleValue());
-		po.setAmount(amount);
-		po.setDate(new Date());
+        Portfolio po = new Portfolio();
+        po.setInvestor(investor);
+        po.setTStock(ts);
+        po.setCost(ts.getPrice().doubleValue());
+        po.setAmount(amount);
+        po.setDate(new Date());
 
-		investorRepository.saveAndFlush(investor);
-		portfolioRepository.saveAndFlush(po);
+        investorRepository.saveAndFlush(investor);
+        portfolioRepository.saveAndFlush(po);
 
-		return po.getId() + "";
-	}
+        return po.getId() + "";
+    }
 
-	@Override
-	@Transactional
-	public String sell(HttpSession session, Integer portfolioId, Integer amount) {
-		Integer investorId = (Integer) session.getAttribute("investor_id");
-		Investor investor = investorRepository.findById(investorId).orElse(null);
-		if (investor == null)
-			return "Investor None";
+    @Override
+    @Transactional
+    public String sell(HttpSession session, Integer portfolioId, Integer amount) {
+        Integer investorId = (Integer) session.getAttribute("investor_id");
+        Investor investor = investorRepository.findById(investorId).orElse(null);
+        if (investor == null)
+            return "Investor None";
 
-		Portfolio po = portfolioRepository.findById(portfolioId).orElse(null);
-		if (po == null)
-			return "Portfolio None";
+        Portfolio po = portfolioRepository.findById(portfolioId).orElse(null);
+        if (po == null)
+            return "Portfolio None";
 
-		if (po.getAmount() < amount)
-			return "Insufficient stock amount";
+        if (po.getAmount() < amount)
+            return "Insufficient stock amount";
 
-		po.setAmount(po.getAmount() - amount);
-		int profit = (int) (amount * po.getTStock().getPrice().doubleValue());
-		investor.setBalance(investor.getBalance() + profit);
+        po.setAmount(po.getAmount() - amount);
 
-		investorRepository.saveAndFlush(investor);
-		portfolioRepository.saveAndFlush(po);
+        // 💡 修正 3: 賣出的利潤改用 Long 計算
+        long profit = (long) (amount * po.getTStock().getPrice().doubleValue());
+        
+        // 💡 修正 4: 更新餘額 (Long + Long)
+        investor.setBalance(investor.getBalance() + profit);
 
-		return "OK";
-	}
+        investorRepository.saveAndFlush(investor);
+        portfolioRepository.saveAndFlush(po);
+
+        return "OK";
+    }
 }

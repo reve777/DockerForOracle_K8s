@@ -2,13 +2,9 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>TStock 股票、指數、匯率</title>
+<title> TStock 股票、指數、匯率管理系統</title>
 
-<!-- header fragment -->
 <th:block th:replace="~{./include/header :: headerContent}"></th:block>
-
-<!-- jQuery -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script th:inline="javascript">
 /*<![CDATA[*/
@@ -19,9 +15,7 @@ $.fn.serializeObject = function () {
     var a = this.serializeArray();
     $.each(a, function () {
         if (o[this.name]) {
-            if (!o[this.name].push) {
-                o[this.name] = [o[this.name]];
-            }
+            if (!o[this.name].push) o[this.name] = [o[this.name]];
             o[this.name].push(this.value || '');
         } else {
             o[this.name] = this.value || '';
@@ -32,16 +26,23 @@ $.fn.serializeObject = function () {
 
 $(document).ready(function () {
 
-    // 點擊表格列讀取資料
+    // 💡 CSRF 全域設定 (自動從 meta 標籤抓取)
+    var token = $("meta[name='_csrf']").attr("content");
+    var header = $("meta[name='_csrf_header']").attr("content");
+    $(document).ajaxSend(function(e, xhr, options) {
+        if (header && token) {
+            xhr.setRequestHeader(header, token);
+        }
+    });
+
+    // 1. 點擊表格列載入資料
     $("#myTable").on("click", "tr", function () {
         var id = $(this).find('td').eq(0).text().trim();
         if(!id) return;
 
         $.get("/portfolio/tstock/" + id, function (data) {
-            $('#myform').trigger("reset");
             $('#add').attr('disabled', true);
-            $('#upt').attr('disabled', false);
-            $('#del').attr('disabled', false);
+            $('#upt, #del').attr('disabled', false);
 
             $("#id").val(data.id);
             $("#name").val(data.name);
@@ -50,7 +51,7 @@ $(document).ready(function () {
         });
     });
 
-    // 新增
+    // 2. 新增
     $("#add").on("click", function () {
         var jsonObj = $('#myform').serializeObject();
         $.ajax({
@@ -59,11 +60,11 @@ $(document).ready(function () {
             contentType: "application/json; charset=utf-8",
             data: JSON.stringify(jsonObj),
             success: function () { initPageSetup(); },
-            error: function(e){ console.error(e); alert("新增失敗"); }
+            error: function(e){ alert("新增失敗，請確認代號是否重複"); }
         });
     });
 
-    // 修改
+    // 3. 修改
     $("#upt").on("click", function () {
         var jsonObj = $('#myform').serializeObject();
         $.ajax({
@@ -72,125 +73,130 @@ $(document).ready(function () {
             contentType: "application/json; charset=utf-8",
             data: JSON.stringify(jsonObj),
             success: function () { initPageSetup(); },
-            error: function(e){ console.error(e); alert("修改失敗"); }
+            error: function(e){ alert("修改失敗"); }
         });
     });
 
-    // 刪除
+    // 4. 刪除
     $("#del").on("click", function () {
         var id = $("#id").val();
+        if(!id || !confirm("確定要刪除嗎？")) return;
         $.ajax({
             url: "/portfolio/tstock/" + id,
             type: "DELETE",
             success: function () { initPageSetup(); },
-            error: function(e){ console.error(e); alert("刪除失敗"); }
+            error: function(e){ alert("刪除失敗，該商品可能已有關聯紀錄"); }
         });
     });
 
-    // 重置
+    // 5. 重置
     $("#rst").on("click", function() { initPageSetup(); });
 
-    // Classify 下拉選單
+    // 💡 載入 Classify 下拉選單
     $.get("/portfolio/classify/", function (datas) {
-        $('#classify_id').empty();
+        var $select = $('#classify_id');
+        $select.empty();
+        $select.append('<option value="">-- 請選擇分類 --</option>');
         datas.forEach(function (data) {
-            $('#classify_id').append('<option value="' + data.id + '">' + data.name + '</option>');
+            $select.append('<option value="' + data.id + '">' + data.name + '</option>');
         });
     });
 
-    // 初始化頁面
     initPageSetup();
 });
 
 function initPageSetup() {
     $('#myform').trigger("reset");
+    $("#id").val("");
     $('#add').attr('disabled', false);
-    $('#upt').attr('disabled', true);
-    $('#del').attr('disabled', true);
+    $('#upt, #del').attr('disabled', true);
     table_list();
 }
 
 function table_list() {
     $.get("/portfolio/tstock/", function (datas) {
-        $("#myTable tbody").empty();
+        var tbody = $("#myTable tbody");
+        tbody.empty();
         datas.forEach(function (item) {
             var html = '<tr>' +
-                '<td>' + item.id + '</td>' +
+                '<td class="fw-bold">' + item.id + '</td>' +
                 '<td>' + item.name + '</td>' +
-                '<td>' + item.symbol + '</td>' +
-                '<td>' + item.classify.name + '</td>' +
+                '<td><code class="text-primary">' + item.symbol + '</code></td>' +
+                '<td><span class="badge bg-info text-dark">' + item.classify.name + '</span></td>' +
                 '</tr>';
-            $("#myTable tbody").append(html);
+            tbody.append(html);
         });
     });
 }
+/*]]>*/
 </script>
 </head>
-<body>
+<body class="bg-light">
 
-<!-- navbar -->
 <th:block th:replace="~{./include/navbar :: navbar}"></th:block>
 
-<div class="container mt-5">
-    <h1 class="mb-4">TStock 股票、指數、匯率</h1>
+<div class="container pt-5 mt-4 pb-5">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3"><img width="40" th:src="@{/images/stock.png}" class="me-2"/>TStock 商品管理</h1>
+    </div>
 
-    <form id="myform">
-        <div class="mb-3 row">
-            <label for="id" class="col-sm-2 col-form-label">ID</label>
-            <div class="col-sm-10">
-                <input id="id" name="id" readonly class="form-control"/>
-            </div>
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0">基本資料編輯</h5>
         </div>
+        <div class="card-body p-4">
+            <form id="myform">
+                <div class="row g-4">
+                    <div class="col-md-2">
+                        <label for="id" class="form-label fw-bold">ID</label>
+                        <input id="id" name="id" readonly class="form-control bg-light" placeholder="自動生成"/>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="name" class="form-label fw-bold">商品名稱</label>
+                        <input type="text" id="name" name="name" class="form-control" placeholder="請輸入名稱" required/>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="symbol" class="form-label fw-bold">商品代號</label>
+                        <input type="text" id="symbol" name="symbol" class="form-control" placeholder="例如：2330.TW" required/>
+                    </div>
+                    <div class="col-md-12">
+                        <label for="classify_id" class="form-label fw-bold">商品分類</label>
+                        <select id="classify_id" name="classify_id" class="form-select" required></select>
+                    </div>
+                </div>
 
-        <div class="mb-3 row">
-            <label for="name" class="col-sm-2 col-form-label">商品名稱</label>
-            <div class="col-sm-10">
-                <input type="text" id="name" name="name" class="form-control"/>
-            </div>
+                <div class="mt-4 pt-2">
+                    <button id="add" type="button" class="btn btn-success px-4 me-2">新增</button>
+                    <button id="upt" type="button" class="btn btn-info text-white px-4 me-2">修改</button>
+                    <button id="del" type="button" class="btn btn-danger px-4 me-2">刪除</button>
+                    <button id="rst" type="button" class="btn btn-warning px-4">重置</button>
+                </div>
+            </form>
         </div>
+    </div>
 
-        <div class="mb-3 row">
-            <label for="symbol" class="col-sm-2 col-form-label">商品代號</label>
-            <div class="col-sm-10">
-                <input type="text" id="symbol" name="symbol" class="form-control"/>
-            </div>
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0">商品清單 (股票、指數、匯率)</h5>
         </div>
-
-        <div class="mb-3 row">
-            <label for="classify_id" class="col-sm-2 col-form-label">商品分類</label>
-            <div class="col-sm-10">
-                <select id="classify_id" name="classify_id" class="form-select"></select>
-            </div>
+        <div class="table-responsive">
+            <table id="myTable" class="table table-hover align-middle mb-0">
+                <thead class="table-light text-secondary">
+                    <tr>
+                        <th width="80">ID</th>
+                        <th>商品名稱</th>
+                        <th>商品代號</th>
+                        <th>所屬分類</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
         </div>
-
-        <div class="mb-3 row">
-            <div class="col-sm-10 offset-sm-2">
-                <button id="add" type="button" class="btn btn-success">新增</button>
-                <button id="upt" type="button" class="btn btn-info">修改</button>
-                <button id="del" type="button" class="btn btn-danger">刪除</button>
-                <button id="rst" type="button" class="btn btn-warning">重置</button>
-            </div>
-        </div>
-    </form>
-
-    <h2 class="mt-5">TStock 股票、指數、匯率列表</h2>
-
-    <div class="table-responsive">
-        <table id="myTable" class="table table-striped table-hover table-bordered">
-            <thead class="table-light">
-                <tr>
-                    <th>id</th>
-                    <th>name</th>
-                    <th>symbol</th>
-                    <th>classify name</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
     </div>
 </div>
 
-<!-- footer -->
 <th:block th:replace="~{./include/footer :: footer}"></th:block>
 
 </body>

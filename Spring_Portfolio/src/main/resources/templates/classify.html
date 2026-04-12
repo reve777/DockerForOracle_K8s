@@ -4,10 +4,8 @@
 <meta charset="UTF-8">
 <title>Classify 商品分類</title>
 
-<!-- header fragment -->
 <th:block th:replace="~{./include/header :: headerContent}"></th:block>
 
-<!-- jQuery -->
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script th:inline="javascript">
@@ -36,7 +34,17 @@ $.fn.serializeObject = function () {
 
 $(document).ready(function () {
 
-    // 點擊表格列讀取資料
+    // 💡 1. CSRF 全域設定：從 header.html 定義的 meta 標籤中抓取 token
+    var token = $("meta[name='_csrf']").attr("content");
+    var header = $("meta[name='_csrf_header']").attr("content");
+
+    $(document).ajaxSend(function(e, xhr, options) {
+        if (header && token) {
+            xhr.setRequestHeader(header, token);
+        }
+    });
+
+    // 2. 點擊表格列讀取資料
     $("#myTable").on("click", "tr", function () {
         var id = $(this).find('td').eq(0).text().trim();
         if (!id) return;
@@ -44,8 +52,7 @@ $(document).ready(function () {
         $.get("/portfolio/classify/" + id, function (data) {
             $('#myform').trigger("reset");
             $('#add').attr('disabled', true);
-            $('#upt').attr('disabled', false);
-            $('#del').attr('disabled', false);
+            $('#upt, #del').attr('disabled', false);
 
             $("#id").val(data.id);
             $("#name").val(data.name);
@@ -53,7 +60,7 @@ $(document).ready(function () {
         });
     });
 
-    // 新增
+    // 3. 新增
     $("#add").on("click", function () {
         var jsonObj = $('#myform').serializeObject();
         $.ajax({
@@ -66,7 +73,7 @@ $(document).ready(function () {
         });
     });
 
-    // 修改
+    // 4. 修改
     $("#upt").on("click", function () {
         var jsonObj = $('#myform').serializeObject();
         $.ajax({
@@ -79,9 +86,12 @@ $(document).ready(function () {
         });
     });
 
-    // 刪除
+    // 5. 刪除
     $("#del").on("click", function () {
         var id = $("#id").val();
+        if(!id) return;
+        if(!confirm("確定要刪除嗎？")) return;
+
         $.ajax({
             url: "/portfolio/classify/" + id,
             type: "DELETE",
@@ -90,7 +100,7 @@ $(document).ready(function () {
         });
     });
 
-    // 重置
+    // 6. 重置
     $("#rst").on("click", function() { initPageSetup(); });
 
     // 初始化頁面
@@ -100,87 +110,95 @@ $(document).ready(function () {
 // 初始化表單狀態與表格
 function initPageSetup() {
     $('#myform').trigger("reset");
+    $("#id").val(""); // 確保 ID 欄位被清空
     $('#add').attr('disabled', false);
-    $('#upt').attr('disabled', true);
-    $('#del').attr('disabled', true);
+    $('#upt, #del').attr('disabled', true);
     table_list();
 }
 
 // 載入 Classify 資料表格
 function table_list() {
     $.get("/portfolio/classify/", function (datas) {
-        $("#myTable tbody").empty();
+        var tbody = $("#myTable tbody");
+        tbody.empty();
         $.each(datas, function (i, item) {
             var html = '<tr>' +
                 '<td>' + item.id + '</td>' +
                 '<td>' + item.name + '</td>' +
-                '<td>' + (item.tx ? '是' : '否') + '</td>' +
+                '<td>' + (item.tx ? '<span class="badge bg-success">是</span>' : '<span class="badge bg-secondary">否</span>') + '</td>' +
                 '</tr>';
-            $("#myTable tbody").append(html);
+            tbody.append(html);
         });
     });
 }
-
+/*]]>*/
 </script>
 </head>
-<body>
+<body class="bg-light">
 
-<!-- navbar -->
 <th:block th:replace="~{./include/navbar :: navbar}"></th:block>
 
-<div class="container mt-5">
-    <h1>Classify 商品分類</h1>
-
-    <form id="myform">
-        <div class="mb-3 row">
-            <label for="id" class="col-sm-2 col-form-label">ID</label>
-            <div class="col-sm-5">
-                <input id="id" name="id" type="number" readonly class="form-control"/>
-            </div>
+<div class="container mt-5 pb-5">
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-white py-3">
+            <h1 class="h3 mb-0">Classify 商品分類管理</h1>
         </div>
-
-        <div class="mb-3 row">
-            <label for="name" class="col-sm-2 col-form-label">分類名稱</label>
-            <div class="col-sm-10">
-                <input id="name" name="name" type="text" placeholder="請輸入分類名稱" class="form-control"/>
-            </div>
-        </div>
-
-        <div class="mb-3 row">
-            <div class="col-sm-10 offset-sm-2">
-                <div class="form-check">
-                    <input id="tx" name="tx" type="checkbox" class="form-check-input"/>
-                    <label class="form-check-label" for="tx">支援交易（TX）</label>
+        <div class="card-body">
+            <form id="myform">
+                <div class="mb-3 row">
+                    <label for="id" class="col-sm-2 col-form-label fw-bold">ID</label>
+                    <div class="col-sm-4">
+                        <input id="id" name="id" type="number" readonly class="form-control bg-light" placeholder="自動生成"/>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        <div class="mb-3 row">
-            <div class="col-sm-10 offset-sm-2">
-                <button id="add" type="button" class="btn btn-success">新增</button>
-                <button id="upt" type="button" class="btn btn-info">修改</button>
-                <button id="del" type="button" class="btn btn-danger">刪除</button>
-                <button id="rst" type="button" class="btn btn-warning">重置</button>
-            </div>
-        </div>
-    </form>
+                <div class="mb-3 row">
+                    <label for="name" class="col-sm-2 col-form-label fw-bold">分類名稱</label>
+                    <div class="col-sm-10">
+                        <input id="name" name="name" type="text" placeholder="請輸入分類名稱 (例如: 股票、ETF)" class="form-control" required/>
+                    </div>
+                </div>
 
-    <h2 class="mt-5">Classify 商品分類列表</h2>
-    <div class="table-responsive">
-        <table id="myTable" class="table table-striped table-hover table-bordered">
-            <thead class="table-light">
-                <tr>
-                    <th>id</th>
-                    <th>name</th>
-                    <th>tx</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
+                <div class="mb-3 row">
+                    <div class="col-sm-10 offset-sm-2">
+                        <div class="form-check form-switch">
+                            <input id="tx" name="tx" type="checkbox" class="form-check-input"/>
+                            <label class="form-check-label fw-bold" for="tx">支援交易（TX）</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-sm-10 offset-sm-2">
+                        <button id="add" type="button" class="btn btn-success me-1">新增</button>
+                        <button id="upt" type="button" class="btn btn-info text-white me-1">修改</button>
+                        <button id="del" type="button" class="btn btn-danger me-1">刪除</button>
+                        <button id="rst" type="button" class="btn btn-warning">重置</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3">
+            <h2 class="h5 mb-0">Classify 商品分類列表</h2>
+        </div>
+        <div class="table-responsive">
+            <table id="myTable" class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="100">ID</th>
+                        <th>分類名稱</th>
+                        <th width="120">支援交易</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
     </div>
 </div>
 
-<!-- footer -->
 <th:block th:replace="~{./include/footer :: footer}"></th:block>
 
 </body>

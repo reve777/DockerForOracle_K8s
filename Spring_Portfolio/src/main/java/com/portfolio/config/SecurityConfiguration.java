@@ -16,66 +16,80 @@ import com.portfolio.handle.MyLoginSuccessHandler;
 @Configuration
 public class SecurityConfiguration {
 
-	private final UserDetailsService userDetailsService;
-	private final MyLoginSuccessHandler myLoginSuccessHandler;
-	private final MyAccessDeniedHandler myAccessDeniedHandler;
-	private final CustomLogoutSuccessHandler customLogoutSuccessHandler; // 注入登出處理器
+    private final MyLoginSuccessHandler myLoginSuccessHandler;
+    private final MyAccessDeniedHandler myAccessDeniedHandler;
+    private final CustomLogoutSuccessHandler customLogoutSuccessHandler;
+    // 💡 新增：需要 UserDetailsService 來實現 Remember Me 自動登入
+    private final UserDetailsService userDetailsService;
 
-	// 透過建構子注入必要的服務
-	public SecurityConfiguration(UserDetailsService userDetailsService,
-			MyLoginSuccessHandler myLoginSuccessHandler,
-			MyAccessDeniedHandler myAccessDeniedHandler,
-			CustomLogoutSuccessHandler customLogoutSuccessHandler) { // 新增注入
-		this.userDetailsService = userDetailsService;
-		this.myLoginSuccessHandler = myLoginSuccessHandler;
-		this.myAccessDeniedHandler = myAccessDeniedHandler;
-		this.customLogoutSuccessHandler = customLogoutSuccessHandler; // 設定欄位
-	}
+    public SecurityConfiguration(UserDetailsService userDetailsService,
+            MyLoginSuccessHandler myLoginSuccessHandler,
+            MyAccessDeniedHandler myAccessDeniedHandler,
+            CustomLogoutSuccessHandler customLogoutSuccessHandler) {
+        this.userDetailsService = userDetailsService; // 💡 注入
+        this.myLoginSuccessHandler = myLoginSuccessHandler;
+        this.myAccessDeniedHandler = myAccessDeniedHandler;
+        this.customLogoutSuccessHandler = customLogoutSuccessHandler;
+    }
 
-	/**
-	 * 密碼編碼器
-	 */
-	@Bean
-	public static PasswordEncoder passwordEncoder() {
-		return new BCryptPasswordEncoder();
-	}
+    @Bean
+    public static PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
+    }
 
-	/**
-	 * HTTP Security 配置
-	 */
-	@Bean
-	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-		http
-				// CSRF 保留測試用註解
-				.csrf(csrf -> csrf.disable()) // 先關閉 CSRF 方便測試，正式建議開啟
+    @Bean
+    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        http
+            // 💡 第一步：排除綠界路徑的 CSRF 檢查
+            .csrf(csrf -> csrf
+                .ignoringRequestMatchers("/ecpay/**", "/pay-result") 
+            )
 
-				// 授權請求配置
-				.authorizeHttpRequests(auth -> auth
-						.requestMatchers("/", "/resources/**", "/register/**", "/post/**", "/error", "/loginpage")
-						.permitAll() // 這些路徑允許所有訪問
-						.requestMatchers("/admin/**")
-						.hasRole("ADMIN") // 僅限 ADMIN 角色
-						.requestMatchers("/manager/**")
-						.hasRole("MANAGER") // 僅限 MANAGER 角色
-						.anyRequest().authenticated()) // 其他所有請求都需要驗證
+            .authorizeHttpRequests(auth -> auth
+                // 💡 第二步：放行路徑
+                .requestMatchers(
+                    "/", 
+                    "/resources/**", 
+                    "/register/**", 
+                    "/post/**", 
+                    "/error", 
+                    "/loginpage",
+                    "/ecpay/**",      
+                    "/pay-result"     
+//                    "/portfolio/classify/import" 
+                ).permitAll()
+                
+                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/manager/**").hasRole("MANAGER")
+                .anyRequest().authenticated()
+            )
 
-				// 表單登入配置
-				.formLogin(form -> form
-						.loginPage("/loginpage") // 指定自訂的登入頁面 URL
-						.loginProcessingUrl("/login") // 指定登入表單提交的 URL
-						.successHandler(myLoginSuccessHandler) // 使用注入的自訂登入成功處理器
-						.permitAll())
+            .formLogin(form -> form
+                .loginPage("/loginpage")
+                .loginProcessingUrl("/login")
+                .successHandler(myLoginSuccessHandler)
+                .permitAll()
+            )
 
-				// 登出配置
-				.logout(logout -> logout
-						.logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
-						.logoutSuccessHandler(customLogoutSuccessHandler) // **使用自訂的 LogoutSuccessHandler**
-						.permitAll())
+            // 💡 第三步：加上 Remember Me 配置
+            .rememberMe(remember -> remember
+                .key("portfolioSecretKey")           // 加密 Cookie 的金鑰
+                .rememberMeParameter("remember-me")  // 對應 HTML 中 Checkbox 的 name
+                .tokenValiditySeconds(86400 * 7)     // 有效期 7 天
+                .userDetailsService(userDetailsService) // 必須指定以利自動讀取用戶
+            )
 
-				// 權限不足處理配置
-				.exceptionHandling(exception -> exception
-						.accessDeniedHandler(myAccessDeniedHandler)); // 使用注入的自訂權限不足處理器
+            .logout(logout -> logout
+                .logoutRequestMatcher(new AntPathRequestMatcher("/logout"))
+                .logoutSuccessHandler(customLogoutSuccessHandler)
+                .deleteCookies("remember-me")        // 💡 登出時刪除 Cookie
+                .permitAll()
+            )
 
-		return http.build();
-	}
+            .exceptionHandling(exception -> exception
+                .accessDeniedHandler(myAccessDeniedHandler)
+            );
+
+        return http.build();
+    }
 }

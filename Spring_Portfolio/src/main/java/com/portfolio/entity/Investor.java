@@ -1,22 +1,13 @@
 package com.portfolio.entity;
 
 import java.util.Set;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
+import jakarta.persistence.*;
 import lombok.Data;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import lombok.ToString;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 
 @Entity
-@Table
+@Table(name = "investor")
 @Data
 public class Investor {
     @Id
@@ -30,15 +21,15 @@ public class Investor {
     private String email;
 
     @Column
-    private Integer balance;
+    private Long balance;
 
-    @OneToMany(mappedBy = "investor")
-    @JsonIgnoreProperties("investor")
-    @ToString.Exclude // 排除 watchs 避免遞迴
+    @OneToMany(mappedBy = "investor", fetch = FetchType.LAZY)
+    @OrderBy("id ASC")
+    @JsonIgnore // 💡 終極方案：直接忽略，不讓 Jackson 進入循環
     private Set<Watch> watchs;
 
     @OneToMany(mappedBy = "investor")
-    @JsonIgnoreProperties("investor")
+    @JsonIgnore // 💡 終極方案：直接忽略
     @ToString.Exclude
     private Set<Portfolio> portfolios;
 }

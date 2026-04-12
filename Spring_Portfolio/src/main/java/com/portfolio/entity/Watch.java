@@ -2,11 +2,8 @@ package com.portfolio.entity;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
-
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
 import jakarta.persistence.*;
-
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
@@ -29,7 +26,7 @@ public class Watch {
 
     @ManyToOne
     @JoinColumn(name = "investor_id", referencedColumnName = "id")
-    @JsonIgnoreProperties("watchs")
+    // 保留顯示 investor，但剛才我們在 Investor 類別已經把它的 watchs 給 @JsonIgnore 了
     @ToString.Exclude
     private Investor investor;
 
@@ -39,7 +36,7 @@ public class Watch {
         joinColumns = @JoinColumn(name = "watch_id"),
         inverseJoinColumns = @JoinColumn(name = "t_stock_id")
     )
-    @JsonIgnoreProperties("watchs")
+    // 這裡不用改，因為 TStock 端已經 @JsonIgnore 了 watchs
     private Set<TStock> tStocks = new LinkedHashSet<>();
 
     public Watch(String name, Investor investor) {

@@ -2,18 +2,16 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Investor 投資人</title>
+<title>Investor 投資人管理系統</title>
 
-<!-- header fragment -->
 <th:block th:replace="~{./include/header :: headerContent}"></th:block>
-
-<!-- jQuery -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script th:inline="javascript">
 /*<![CDATA[*/
 
-// 將表單轉成 JSON 物件
+/**
+ * 將表單資料轉為 JSON 物件
+ */
 $.fn.serializeObject = function () {
     var o = {};
     var a = this.serializeArray();
@@ -22,32 +20,35 @@ $.fn.serializeObject = function () {
             if (!o[this.name].push) o[this.name] = [o[this.name]];
             o[this.name].push(this.value || '');
         } else {
-            if($(this).attr('type') === 'checkbox') {
-                o[this.name] = $(this).is(':checked');
-            } else {
-                o[this.name] = this.value || '';
-            }
+            o[this.name] = ($(this).attr('type') === 'checkbox') ? $(this).is(':checked') : (this.value || '');
         }
     });
     return o;
 };
 
-// 從後端 Controller 傳入的 session investor id
-var session_investor_id = /*[[${investorIdFromSession}]]*/ null;
+// 💡 取得當前登入者的 investor_id
+var session_investor_id = /*[[${session.investor_id}]]*/ null;
 
 $(document).ready(function () {
+    
+    // 💡 補上 CSRF 全域設定 (自動從 header 的 meta 抓取)
+    var token = $("meta[name='_csrf']").attr("content");
+    var header = $("meta[name='_csrf_header']").attr("content");
+    $(document).ajaxSend(function(e, xhr, options) {
+        if (header && token) {
+            xhr.setRequestHeader(header, token);
+        }
+    });
 
-    // 點擊表格列讀取資料
+    // 1. 點擊表格列載入資料到表單
     $("#myTable").on("click", "tr", function () {
         var id = $(this).find('td').eq(0).text().trim();
         if (!id) return;
 
         $.get("/portfolio/investor/" + id, function (data) {
-            $('#myform').trigger("reset");
             $('#add').attr('disabled', true);
-            $('#upt').attr('disabled', false);
-            $('#del').attr('disabled', false);
-
+            $('#upt, #del').attr('disabled', false);
+            
             $("#id").val(data.id);
             $("#username").val(data.username);
             $("#email").val(data.email);
@@ -55,83 +56,88 @@ $(document).ready(function () {
         });
     });
 
-    // 新增
-    $("#add").on("click", function () {
-        var jsonObj = $('#myform').serializeObject();
-        $.ajax({
-            url: "/portfolio/investor/",
-            type: "POST",
-            contentType: "application/json; charset=utf-8",
-            data: JSON.stringify(jsonObj),
-            success: function () { initPageSetup(); },
-            error: function(e){ console.error(e); alert("新增失敗"); }
-        });
+    // 2. 新增、修改、刪除按鈕事件
+    $("#add").on("click", function () { sendAjax("POST", "/portfolio/investor/"); });
+    $("#upt").on("click", function () { sendAjax("PUT", "/portfolio/investor/" + $("#id").val()); });
+    $("#del").on("click", function () { 
+        if(confirm("確定要刪除此投資人嗎？")) {
+            sendAjax("DELETE", "/portfolio/investor/" + $("#id").val()); 
+        }
     });
-
-    // 修改
-    $("#upt").on("click", function () {
-        var jsonObj = $('#myform').serializeObject();
-        $.ajax({
-            url: "/portfolio/investor/" + jsonObj.id,
-            type: "PUT",
-            contentType: "application/json; charset=utf-8",
-            data: JSON.stringify(jsonObj),
-            success: function () { initPageSetup(); },
-            error: function(e){ console.error(e); alert("修改失敗"); }
-        });
-    });
-
-    // 刪除
-    $("#del").on("click", function () {
-        var id = $("#id").val();
-        $.ajax({
-            url: "/portfolio/investor/" + id,
-            type: "DELETE",
-            success: function () { initPageSetup(); },
-            error: function(e){ console.error(e); alert("刪除失敗"); }
-        });
-    });
-
-    // 重置
+    
+    // 3. 重置按鈕
     $("#rst").on("click", function() { initPageSetup(); });
 
-    // 登入按鈕
-    $("#myTable").on("click", "tr td button.login-btn", function(e) {
+    // 4. 切換投資人身份按鈕 (登入)
+    $("#myTable").on("click", ".login-btn", function(e) {
         e.stopPropagation();
         var investor_id = $(this).attr('data-investor-id');
         window.location.href = '/portfolio/page/investor?investor_id=' + investor_id;
     });
 
-    // 初始化頁面
+    // 5. Excel 匯出按鈕
+    $("#exportExcel").on("click", function () {
+        window.location.href = "/portfolio/investor/export";
+    });
+
+    // 初始化頁面狀態
     initPageSetup();
 });
 
+/**
+ * 通用的 Ajax 傳送函式
+ */
+function sendAjax(type, url) {
+    var jsonObj = $('#myform').serializeObject();
+    $.ajax({
+        url: url,
+        type: type,
+        contentType: "application/json; charset=utf-8",
+        data: JSON.stringify(jsonObj),
+        success: function () { 
+            initPageSetup(); 
+        },
+        error: function(e){ 
+            console.error(e);
+            alert("操作失敗，狀態碼：" + e.status); 
+        }
+    });
+}
+
+/**
+ * 初始化表單與表格
+ */
 function initPageSetup() {
     $('#myform').trigger("reset");
+    $("#id").val(""); 
     $('#add').attr('disabled', false);
-    $('#upt').attr('disabled', true);
-    $('#del').attr('disabled', true);
+    $('#upt, #del').attr('disabled', true);
     table_list();
 }
 
+/**
+ * 載入投資人列表
+ */
 function table_list() {
     $.get("/portfolio/investor/", function (datas) {
-        $("#myTable tbody").empty();
+        var tbody = $("#myTable tbody");
+        tbody.empty();
         $.each(datas, function (i, item) {
-            var loginBtn = '';
-            if(session_investor_id != item.id) {
-				console.log("session_investor_id === " ,session_investor_id);
-				console.log("item.id === " ,item.id)
-                loginBtn = '<button type="button" class="btn btn-success login-btn" data-investor-id="' + item.id + '">登入</button>';
+            var loginBtnHtml = '';
+            if (session_investor_id == item.id) {
+                loginBtnHtml = '<span class="badge bg-primary px-3 py-2">當前帳戶</span>';
+            } else {
+                loginBtnHtml = '<button type="button" class="btn btn-outline-success btn-sm login-btn" data-investor-id="' + item.id + '">登入身份</button>';
             }
+
             var html = '<tr>' +
-                '<td>' + item.id + '</td>' +
+                '<td class="fw-bold">' + item.id + '</td>' +
                 '<td>' + item.username + '</td>' +
                 '<td>' + item.email + '</td>' +
-                '<td>' + item.balance + '</td>' +
-                '<td>' + loginBtn + '</td>' +
+                '<td>' + (item.balance ? item.balance.toLocaleString() : 0) + '</td>' +
+                '<td class="text-center">' + loginBtnHtml + '</td>' +
                 '</tr>';
-            $("#myTable tbody").append(html);
+            tbody.append(html);
         });
     });
 }
@@ -139,72 +145,75 @@ function table_list() {
 /*]]>*/
 </script>
 </head>
-<body>
+<body class="bg-light">
 
-<!-- navbar -->
 <th:block th:replace="~{./include/navbar :: navbar}"></th:block>
 
-<div class="container mt-5">
-    <h1 class="mb-4"><img width="40" th:src="@{/images/user.png}"/> Investor 投資人</h1>
-
-    <form id="myform">
-        <div class="mb-3 row">
-            <label for="id" class="col-sm-2 col-form-label">ID</label>
-            <div class="col-sm-2">
-                <input id="id" name="id" readonly class="form-control"/>
-            </div>
+<div class="container pt-5 mt-4 pb-5">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3"><img width="40" th:src="@{/images/user.png}" class="me-2"/>Investor 投資人管理</h1>
         </div>
 
-        <div class="mb-3 row">
-            <label for="username" class="col-sm-2 col-form-label">投資人帳號</label>
-            <div class="col-sm-10">
-                <input type="text" id="username" name="username" class="form-control"/>
-            </div>
+    <div class="card shadow-sm border-0 mb-5">
+        <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0">基本資料編輯</h5>
         </div>
+        <div class="card-body p-4">
+            <form id="myform">
+                <div class="row g-4">
+                    <div class="col-md-2">
+                        <label for="id" class="form-label fw-bold">ID</label>
+                        <input id="id" name="id" readonly class="form-control bg-light" placeholder="自動生成"/>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="username" class="form-label fw-bold">投資人帳號</label>
+                        <input type="text" id="username" name="username" class="form-control" placeholder="請輸入帳號" required/>
+                    </div>
+                    <div class="col-md-5">
+                        <label for="email" class="form-label fw-bold">電子郵件</label>
+                        <input type="email" id="email" name="email" class="form-control" placeholder="example@mail.com"/>
+                    </div>
+                    <div class="col-md-12">
+                        <label for="balance" class="form-label fw-bold">可用資金 (Balance)</label>
+                        <div class="input-group">
+                            <span class="input-group-text">$</span>
+                            <input type="number" id="balance" name="balance" class="form-control" placeholder="0.00"/>
+                        </div>
+                    </div>
+                </div>
 
-        <div class="mb-3 row">
-            <label for="email" class="col-sm-2 col-form-label">投資人電郵</label>
-            <div class="col-sm-10">
-                <input type="email" id="email" name="email" class="form-control"/>
-            </div>
+                <div class="mt-4 pt-2">
+                    <button id="add" type="button" class="btn btn-success px-4 me-2">新增</button>
+                    <button id="upt" type="button" class="btn btn-info text-white px-4 me-2">修改</button>
+                    <button id="del" type="button" class="btn btn-danger px-4 me-2">刪除</button>
+                    <button id="rst" type="button" class="btn btn-warning px-4">重置</button>
+                </div>
+            </form>
         </div>
+    </div>
 
-        <div class="mb-3 row">
-            <label for="balance" class="col-sm-2 col-form-label">可用資金</label>
-            <div class="col-sm-10">
-                <input type="number" id="balance" name="balance" class="form-control"/>
-            </div>
+    <div class="card shadow-sm border-0">
+        <div class="card-header bg-white py-3">
+            <h5 class="card-title mb-0">投資人清單</h5>
         </div>
-
-        <div class="mb-3 row">
-            <div class="col-sm-10 offset-sm-2">
-                <button id="add" type="button" class="btn btn-success">新增</button>
-                <button id="upt" type="button" class="btn btn-info">修改</button>
-                <button id="del" type="button" class="btn btn-danger">刪除</button>
-                <button id="rst" type="button" class="btn btn-warning">重置</button>
-            </div>
+        <div class="table-responsive">
+            <table id="myTable" class="table table-hover align-middle mb-0">
+                <thead class="table-light text-secondary">
+                    <tr>
+                        <th width="80">ID</th>
+                        <th>帳號 (Username)</th>
+                        <th>電子郵件 (Email)</th>
+                        <th>可用資金 (Balance)</th>
+                        <th class="text-center" width="150">身份操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
         </div>
-    </form>
-
-    <h2 class="mt-5"><img width="40" th:src="@{/images/user.png}"/> Investor 投資人列表</h2>
-
-    <div class="table-responsive">
-        <table id="myTable" class="table table-striped table-hover table-bordered">
-            <thead class="table-light">
-                <tr>
-                    <th>id</th>
-                    <th>username</th>
-                    <th>email</th>
-                    <th>balance</th>
-                    <th>login</th>
-                </tr>
-            </thead>
-            <tbody></tbody>
-        </table>
     </div>
 </div>
 
-<!-- footer -->
 <th:block th:replace="~{./include/footer :: footer}"></th:block>
 
 </body>

@@ -2,22 +2,106 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>首頁</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>金融下單系統 - 首頁</title>
 
-    <!-- header fragment -->
     <th:block th:replace="~{include/header :: headerContent}"></th:block>
+    
+    <style>
+        .hero-section {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            border-radius: 15px;
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+        .erd-container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .card-hover:hover {
+            transform: translateY(-5px);
+            transition: 0.3s;
+        }
+    </style>
 </head>
-<body>
-    <!-- navbar fragment -->
+<body class="bg-light">
+
     <th:block th:replace="~{include/navbar :: navbar}"></th:block>
 
-    <div class="container mt-5">
-        <h1>金融下單系統 - 資料表關聯圖</h1>
-        <!-- Bootstrap 5: img-fluid 取代 img-responsive -->
-        <img class="img-fluid" th:src="@{/images/portfolio_tables.png}" alt="Portfolio ERD"/>
+    <div class="container pt-5 mt-4">
+        
+        <div class="hero-section shadow-sm text-center">
+            <h1 class="display-5 fw-bold text-primary mb-3">金融下單模擬系統</h1>
+            <p class="lead text-secondary">Ivan 專案</p>
+            <hr class="my-4 mx-auto" style="width: 100px; border-top: 3px solid #0d6efd;">
+            
+            <div class="row g-4 mt-2 text-start">
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm card-hover">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold"><i class="bi bi-graph-up-arrow me-2"></i>資產管理</h5>
+                            <p class="card-text text-muted small">即時損益計算與 Google Chart 視覺化分析。</p>
+                            <a th:href="@{/page/asset}" class="btn btn-outline-primary btn-sm">前往我的資產</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm card-hover">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold"><i class="bi bi-cart4 me-2"></i>下單交易</h5>
+                            <p class="card-text text-muted small">模擬證券買賣，支援自動檢查餘額與股數。</p>
+                            <a th:href="@{/page/classify}" class="btn btn-outline-success btn-sm">進行交易</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card h-100 border-0 shadow-sm card-hover">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold"><i class="bi bi-person-badge me-2"></i>基本資料</h5>
+                            <p class="card-text text-muted small">管理個人投資帳戶資訊與餘額儲值。</p>
+                            <a th:href="@{/page/investor}" class="btn btn-outline-dark btn-sm">帳戶設定</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row mb-5">
+            <div class="col-12">
+                <div class="erd-container border">
+                    <h3 class="fw-bold mb-4">
+                        <i class="bi bi-database-fill-gear me-2 text-secondary"></i>資料表關聯圖 (ERD)
+                    </h3>
+                    <div class="text-center bg-white p-3">
+                        <img class="img-fluid rounded shadow-sm" 
+                             th:src="@{/images/portfolio_tables.png}" 
+                             alt="Portfolio Database ERD"
+                             style="max-height: 600px;"/>
+                    </div>
+                    <div class="mt-4 px-3">
+                        <h6 class="fw-bold text-uppercase text-muted">系統設計重點：</h6>
+                        <ul class="text-secondary small">
+                            <li><strong>Investor (投資人):</strong> 核心用戶表，存儲帳戶餘額。</li>
+                            <li><strong>TStock (股票):</strong> 記錄目前市場價格與所屬分類。</li>
+                            <li><strong>Portfolio (持股):</strong> 紀錄投資人的資產明細與買入成本（多對多關聯的中間表概念）。</li>
+                            <li><strong>Classify (分類):</strong> 股票產業分類，支援分類圖表統計。</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
-    <!-- footer fragment -->
     <th:block th:replace="~{include/footer :: footer}"></th:block>
+
+    <script>
+        $(document).ready(function() {
+            // 自動標記導覽列目前頁面
+            $('.nav-link').removeClass('active');
+            $('.nav-link[href="/"]').addClass('active');
+        });
+    </script>
 </body>
 </html>

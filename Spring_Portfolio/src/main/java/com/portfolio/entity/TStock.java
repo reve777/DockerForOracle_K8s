@@ -4,21 +4,9 @@ import java.math.BigDecimal;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.Set;
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.JoinColumn;
-import jakarta.persistence.ManyToOne;
-import jakarta.persistence.ManyToMany;
-import jakarta.persistence.Table;
-import jakarta.persistence.Temporal;
-import jakarta.persistence.TemporalType;
-
+import jakarta.persistence.*;
 import lombok.Data;
 
 @Entity
@@ -36,7 +24,6 @@ public class TStock {
     @Column(nullable = false)
     private String symbol;
 
-    // 報價資訊
     @Column
     private BigDecimal preClosed;
 
@@ -58,10 +45,10 @@ public class TStock {
 
     @ManyToOne
     @JoinColumn(name = "classify_id", referencedColumnName = "id")
-    @JsonIgnoreProperties("tStocks")
+    @JsonIgnoreProperties("tStocks") // 這裡通常 Classify 也要加 Ignore
     private Classify classify;
 
     @ManyToMany(mappedBy = "tStocks")
-    @JsonIgnoreProperties("tStocks")
+    @JsonIgnore // 💡 終極方案：徹底切斷
     private Set<Watch> watchs = new LinkedHashSet<>();
 }

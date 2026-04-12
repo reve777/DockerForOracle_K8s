@@ -8,6 +8,7 @@ import com.portfolio.entity.Investor;
 public interface InvestorService {
     List<Investor> getAll();
     Investor getById(Integer id);
+    Investor findByIdWithWatchs(Integer id);
     Investor add(Map<String, String> map);
     Investor update(Integer id, Map<String, String> map);
     Boolean delete(Integer id);

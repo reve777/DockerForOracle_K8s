@@ -31,7 +31,7 @@ var session_investor_id = /*[[${session.investor_id}]]*/ null;
 
 $(document).ready(function () {
     
-    // 💡 補上 CSRF 全域設定 (自動從 header 的 meta 抓取)
+    // 💡 補上 CSRF 全域設定
     var token = $("meta[name='_csrf']").attr("content");
     var header = $("meta[name='_csrf_header']").attr("content");
     $(document).ajaxSend(function(e, xhr, options) {
@@ -40,19 +40,25 @@ $(document).ready(function () {
         }
     });
 
-    // 1. 點擊表格列載入資料到表單
+    // 1. 點擊表格列載入資料到表單 (已修正包裝路徑與型態判斷)
     $("#myTable").on("click", "tr", function () {
         var id = $(this).find('td').eq(0).text().trim();
         if (!id) return;
 
-        $.get("/portfolio/investor/" + id, function (data) {
-            $('#add').attr('disabled', true);
-            $('#upt, #del').attr('disabled', false);
-            
-            $("#id").val(data.id);
-            $("#username").val(data.username);
-            $("#email").val(data.email);
-            $("#balance").val(data.balance);
+        $.get("/portfolio/investor/" + id, function (res) {
+            // 💡 使用 Number() 確保字串 "200" 也能正確通過嚴格比較
+            if (Number(res.code) === 200) {
+                $('#add').attr('disabled', true);
+                $('#upt, #del').attr('disabled', false);
+                
+                var investor = res.data;
+                $("#id").val(investor.id);
+                $("#username").val(investor.username);
+                $("#email").val(investor.email);
+                $("#balance").val(investor.balance);
+            } else {
+                alert("取得資料失敗：" + res.message);
+            }
         });
     });
 
@@ -68,7 +74,7 @@ $(document).ready(function () {
     // 3. 重置按鈕
     $("#rst").on("click", function() { initPageSetup(); });
 
-    // 4. 切換投資人身份按鈕 (登入)
+    // 4. 切換投資人身份按鈕
     $("#myTable").on("click", ".login-btn", function(e) {
         e.stopPropagation();
         var investor_id = $(this).attr('data-investor-id');
@@ -80,12 +86,11 @@ $(document).ready(function () {
         window.location.href = "/portfolio/investor/export";
     });
 
-    // 初始化頁面狀態
     initPageSetup();
 });
 
 /**
- * 通用的 Ajax 傳送函式
+ * 通用的 Ajax 傳送函式 (已加上型態強制轉型)
  */
 function sendAjax(type, url) {
     var jsonObj = $('#myform').serializeObject();
@@ -94,12 +99,16 @@ function sendAjax(type, url) {
         type: type,
         contentType: "application/json; charset=utf-8",
         data: JSON.stringify(jsonObj),
-        success: function () { 
-            initPageSetup(); 
+        success: function (res) { 
+            if (Number(res.code) === 200) {
+                initPageSetup(); 
+            } else {
+                alert("操作失敗：" + res.message);
+            }
         },
         error: function(e){ 
             console.error(e);
-            alert("操作失敗，狀態碼：" + e.status); 
+            alert("系統錯誤，狀態碼：" + e.status); 
         }
     });
 }
@@ -116,12 +125,21 @@ function initPageSetup() {
 }
 
 /**
- * 載入投資人列表
+ * 載入投資人列表 (已修正包裝路徑與型態判斷)
  */
 function table_list() {
-    $.get("/portfolio/investor/", function (datas) {
+    $.get("/portfolio/investor/", function (res) {
+        // 💡 這裡使用 Number() !== 200 避免將成功訊息誤判為錯誤
+        if (Number(res.code) !== 200) {
+            console.error("無法載入列表 (Code: " + res.code + "): " + res.message);
+            return;
+        }
+
         var tbody = $("#myTable tbody");
         tbody.empty();
+
+        var datas = res.data;
+
         $.each(datas, function (i, item) {
             var loginBtnHtml = '';
             if (session_investor_id == item.id) {
@@ -152,7 +170,8 @@ function table_list() {
 <div class="container pt-5 mt-4 pb-5">
     <div class="d-flex justify-content-between align-items-center mb-4">
         <h1 class="h3"><img width="40" th:src="@{/images/user.png}" class="me-2"/>Investor 投資人管理</h1>
-        </div>
+        <button id="exportExcel" class="btn btn-outline-secondary">匯出 Excel</button>
+    </div>
 
     <div class="card shadow-sm border-0 mb-5">
         <div class="card-header bg-white py-3">
@@ -208,7 +227,7 @@ function table_list() {
                     </tr>
                 </thead>
                 <tbody>
-                    </tbody>
+                </tbody>
             </table>
         </div>
     </div>

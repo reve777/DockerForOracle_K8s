@@ -2,17 +2,16 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Watch 編輯系統</title>
+<title th:text="${pageTitle}">預設標題</title>
 
 <th:block th:replace="~{./include/header :: headerContent}"></th:block>
 
 <script th:inline="javascript">
 /*<![CDATA[*/
-    // 💡 修正 1：使用安全註解格式，避免變數為 null 或未定義時崩潰
+    // 💡 確保 watchId 有正確從 Controller 傳入，否則會變為 -1
     var watchId = /*[[${watchId}]]*/ -1;
     var watch = null;
 
-    // 表單序列化為物件
     $.fn.serializeObject = function () {
         var o = {};
         var a = this.serializeArray();
@@ -26,7 +25,6 @@
     };
 
     $(document).ready(function () {
-        // 💡 CSRF 全域設定
         var token = $("meta[name='_csrf']").attr("content");
         var header = $("meta[name='_csrf_header']").attr("content");
         $(document).ajaxSend(function(e, xhr, options) {
@@ -36,11 +34,11 @@
         });
 
         if (watchId === -1) {
-            alert("無效的觀察清單 ID");
+            console.error("Watch ID 遺失");
             return;
         }
 
-        // 修改 Watch 名稱
+        // 修改名稱
         $("#updateWatch").on("click", function () {
             var jsonObj = $('#watchForm').serializeObject();
             $.ajax({
@@ -48,99 +46,95 @@
                 type: "PUT",
                 contentType: "application/json; charset=utf-8",
                 data: JSON.stringify(jsonObj),
-                success: function () { 
-                    alert("名稱更新成功");
-                    loadWatchList(); 
-                },
-                error: function() { alert("更新失敗"); }
+                success: function (res) { 
+                    if (Number(res.code) === 200) {
+                        alert("名稱更新成功");
+                        loadWatchList(); 
+                    } else {
+                        alert("更新失敗：" + res.message);
+                    }
+                }
             });
         });
 
-        // 刪除觀察股
+        // 刪除股票
         $("#watchTable tbody").on("click", "button.deleteBtn", function () {
             var tstockId = $(this).closest('td').attr('tstock_id');
-            if(confirm("確定要將此股票移出觀察清單嗎？")) {
+            if(confirm("確定移除？")) {
                 $.ajax({
                     url: "/portfolio/watch/" + watchId + "/remove/" + tstockId,
                     type: "DELETE",
-                    success: function () { loadWatchList(); },
-                    error: function() { alert("刪除失敗"); }
+                    success: function (res) { 
+                        if (Number(res.code) === 200) loadWatchList(); 
+                    }
                 });
             }
         });
 
-        // 新增觀察股
+        // 新增股票
         $("#tstockTable tbody").on("click", "button.addBtn", function () {
             var tstockId = $(this).closest('td').attr('tstock_id');
-            
-            // 💡 修正 2：處理大小寫相容性 (tstocks/tStocks)
-            var currentStocks = watch.tStocks || watch.tstocks || [];
+            var currentStocks = (watch && (watch.tStocks || watch.tstocks)) || [];
             var exists = currentStocks.some(function(s) { return s.id == tstockId; });
             
-            if(exists) {
-                alert('該股票已在觀察清單中！');
-                return;
-            }
+            if(exists) { alert('已在清單中'); return; }
 
-            if(confirm("是否要加入觀察清單？")) {
+            if(confirm("加入清單？")) {
                 $.ajax({
                     url: "/portfolio/watch/" + watchId + "/add/" + tstockId,
                     type: "POST",
-                    success: function () { loadWatchList(); },
-                    error: function() { alert("新增失敗"); }
+                    success: function (res) { 
+                        if (Number(res.code) === 200) loadWatchList(); 
+                    }
                 });
             }
         });
 
-        // 初始化資料
         loadWatchList();
         loadTStockList();
     });
 
-    // 載入 Watch 觀察股列表
     function loadWatchList() {
-        $.get("/portfolio/watch/" + watchId, function(data) {
-            watch = data;
-            $("#watchForm #id").val(data.id);
-            $("#watchForm #name").val(data.name);
-            $("#watchTable tbody").empty();
-            
-            // 💡 修正 3：大小寫相容
-            var list = data.tStocks || data.tstocks || [];
-            
-            list.forEach(function(item) {
-                var classifyName = (item.classify && item.classify.name) ? item.classify.name : '未分類';
-                var html = '<tr>' +
-                    '<td>' + item.id + '</td>' +
-                    '<td class="fw-bold">' + item.name + '</td>' +
-                    '<td><code class="text-primary">' + item.symbol + '</code></td>' +
-                    '<td><span class="badge bg-light text-dark border">' + classifyName + '</span></td>' +
-                    '<td class="text-center" tstock_id="' + item.id + '">' +
-                        '<button class="btn btn-outline-danger btn-sm deleteBtn">刪除</button>' +
-                    '</td>' +
-                    '</tr>';
-                $("#watchTable tbody").append(html);
-            });
+        $.get("/portfolio/watch/" + watchId, function(res) {
+            if (Number(res.code) === 200) {
+                watch = res.data; 
+                $("#watchForm #id").val(watch.id);
+                $("#watchForm #name").val(watch.name);
+                $("#watchTable tbody").empty();
+                var list = watch.tStocks || watch.tstocks || [];
+                list.forEach(function(item) {
+                    var html = '<tr>' +
+                        '<td>' + item.id + '</td>' +
+                        '<td class="fw-bold">' + item.name + '</td>' +
+                        '<td>' + item.symbol + '</td>' +
+                        '<td>' + (item.classify ? item.classify.name : '-') + '</td>' +
+                        '<td class="text-center" tstock_id="' + item.id + '">' +
+                            '<button class="btn btn-outline-danger btn-sm deleteBtn">刪除</button>' +
+                        '</td>' +
+                        '</tr>';
+                    $("#watchTable tbody").append(html);
+                });
+            }
         });
     }
 
-    // 載入所有可用的 TStock 列表
     function loadTStockList() {
-        $.get("/portfolio/tstock/", function(datas) {
-            $("#tstockTable tbody").empty();
-            datas.forEach(function(item) {
-                var classifyName = (item.classify && item.classify.name) ? item.classify.name : '未分類';
-                var html = '<tr>' +
-                    '<td>' + item.id + '</td>' +
-                    '<td class="fw-bold">' + item.name + '</td>' +
-                    '<td><code class="text-primary">' + item.symbol + '</code></td>' +
-                    '<td><span class="badge bg-light text-dark border">' + classifyName + '</span></td>' +
-                    '<td class="text-center" tstock_id="' + item.id + '">' +
-                        '<button class="btn btn-outline-success btn-sm addBtn">新增</button>' +
-                    '</td>' +
-                    '</tr>';
-                $("#tstockTable tbody").append(html);
-            });
+        $.get("/portfolio/tstock/", function(res) {
+            if (Number(res.code) === 200) {
+                $("#tstockTable tbody").empty();
+                res.data.forEach(function(item) {
+                    var html = '<tr>' +
+                        '<td>' + item.id + '</td>' +
+                        '<td>' + item.name + '</td>' +
+                        '<td>' + item.symbol + '</td>' +
+                        '<td>' + (item.classify ? item.classify.name : '-') + '</td>' +
+                        '<td class="text-center" tstock_id="' + item.id + '">' +
+                            '<button class="btn btn-outline-success btn-sm addBtn">新增</button>' +
+                        '</td>' +
+                        '</tr>';
+                    $("#tstockTable tbody").append(html);
+                });
+            }
         });
     }
 /*]]>*/
@@ -153,26 +147,31 @@
 <div class="container pt-5 mt-4 pb-5">
     
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3"><i class="bi bi-pencil-square me-2"></i>Watch 觀察股編輯</h1>
+        <h1 class="h3 fw-bold">
+            <i class="bi bi-pencil-square me-2"></i>
+            <span th:text="${pageTitle}">頁面標題</span>
+        </h1>
+        
+        <div th:if="${currentUser != null}" class="text-secondary small">
+            <i class="bi bi-person-fill me-1"></i>
+            目前帳戶：<span class="text-primary fw-bold" th:text="${currentUser}">User</span>
+        </div>
     </div>
 
     <div class="card shadow-sm border-0 mb-5">
-        <div class="card-header bg-white py-3">
-            <h5 class="card-title mb-0 fw-bold text-info">觀察清單設定</h5>
-        </div>
         <div class="card-body p-4">
             <form id="watchForm">
                 <div class="row g-3 align-items-end">
                     <div class="col-md-2">
-                        <label class="form-label fw-bold">ID</label>
+                        <label class="form-label fw-bold small">ID</label>
                         <input id="id" name="id" readonly class="form-control bg-light"/>
                     </div>
                     <div class="col-md-7">
-                        <label class="form-label fw-bold">清單名稱</label>
-                        <input id="name" name="name" class="form-control" placeholder="請輸入觀察清單名稱"/>
+                        <label class="form-label fw-bold small">清單名稱</label>
+                        <input id="name" name="name" class="form-control" />
                     </div>
                     <div class="col-md-3">
-                        <button id="updateWatch" type="button" class="btn btn-info text-white w-100 fw-bold">修改名稱</button>
+                        <button id="updateWatch" type="button" class="btn btn-info text-white w-100 fw-bold">更新名稱</button>
                     </div>
                 </div>
             </form>
@@ -182,15 +181,11 @@
     <div class="row g-4">
         <div class="col-lg-6">
             <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-primary text-white py-3">
-                    <h5 class="card-title mb-0"><i class="bi bi-star-fill me-2"></i>我的觀察股 (Watch List)</h5>
-                </div>
+                <div class="card-header bg-primary text-white py-3">我的觀察股</div>
                 <div class="table-responsive">
                     <table id="watchTable" class="table table-hover align-middle mb-0">
                         <thead class="table-light">
-                            <tr>
-                                <th>ID</th><th>名稱</th><th>代號</th><th>分類</th><th class="text-center">操作</th>
-                            </tr>
+                            <tr><th>ID</th><th>名稱</th><th>代號</th><th>分類</th><th class="text-center">操作</th></tr>
                         </thead>
                         <tbody></tbody>
                     </table>
@@ -200,15 +195,11 @@
 
         <div class="col-lg-6">
             <div class="card shadow-sm border-0 h-100">
-                <div class="card-header bg-success text-white py-3">
-                    <h5 class="card-title mb-0"><i class="bi bi-plus-circle me-2"></i>所有股票 (TStock List)</h5>
-                </div>
+                <div class="card-header bg-success text-white py-3">股票資料庫</div>
                 <div class="table-responsive">
                     <table id="tstockTable" class="table table-hover align-middle mb-0">
                         <thead class="table-light">
-                            <tr>
-                                <th>ID</th><th>名稱</th><th>代號</th><th>分類</th><th class="text-center">操作</th>
-                            </tr>
+                            <tr><th>ID</th><th>名稱</th><th>代號</th><th>分類</th><th class="text-center">操作</th></tr>
                         </thead>
                         <tbody></tbody>
                     </table>

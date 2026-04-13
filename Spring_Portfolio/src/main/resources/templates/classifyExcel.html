@@ -2,7 +2,7 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>Classify 商品分類管理</title>
+    <title th:text="${pageTitle}">Classify 商品分類管理</title>
 
     <th:block th:replace="~{./include/header :: headerContent}"></th:block>
 
@@ -27,7 +27,7 @@
     };
 
     $(document).ready(function () {
-        // 💡 全域設定：自動在每個 Ajax 請求 Header 加入 CSRF Token
+        // 💡 CSRF 全域設定
         var token = $("meta[name='_csrf']").attr("content");
         var header = $("meta[name='_csrf_header']").attr("content");
         $(document).ajaxSend(function(e, xhr, options) {
@@ -39,16 +39,23 @@
         // 定義 API 基礎路徑
         var baseUrl = "/portfolio/excel/classify";
 
-        // 1. 點擊表格列載入資料
+        // 1. 點擊表格列載入資料 (解包 res.data)
         $("#myTable").on("click", "tr", function () {
             var id = $(this).find('td').eq(0).text().trim();
             if (!id) return;
-            $.get(baseUrl + "/" + id, function (data) {
-                $('#add').attr('disabled', true);
-                $('#upt, #del').attr('disabled', false);
-                $("#id").val(data.id);
-                $("#name").val(data.name);
-                $("#tx").prop('checked', data.tx);
+
+            $.get(baseUrl + "/" + id, function (res) {
+                if (Number(res.code) === 200) {
+                    $('#add').attr('disabled', true);
+                    $('#upt, #del').attr('disabled', false);
+                    
+                    var classify = res.data;
+                    $("#id").val(classify.id);
+                    $("#name").val(classify.name);
+                    $("#tx").prop('checked', classify.tx);
+                } else {
+                    alert("取得資料失敗：" + res.message);
+                }
             });
         });
 
@@ -56,7 +63,7 @@
         $("#add").on("click", function () { sendAjax("POST", baseUrl + "/"); });
         $("#upt").on("click", function () { sendAjax("PUT", baseUrl + "/" + $("#id").val()); });
         $("#del").on("click", function () { 
-            if(confirm("確定要刪除此分類嗎？")) {
+            if(confirm("確定要刪除此分類嗎？(若已有股票連結將無法刪除)")) {
                 sendAjax("DELETE", baseUrl + "/" + $("#id").val()); 
             }
         });
@@ -79,13 +86,17 @@
                 data: formData,
                 processData: false, 
                 contentType: false, 
-                success: function (count) {
-                    alert("匯入成功！共新增 " + count + " 筆資料");
-                    $('#excelFile').val('');
-                    initPageSetup();
+                success: function (res) {
+                    if (Number(res.code) === 200) {
+                        alert("匯入成功！共處理 " + res.data + " 筆資料");
+                        $('#excelFile').val('');
+                        initPageSetup();
+                    } else {
+                        alert("匯入失敗：" + res.message);
+                    }
                 },
                 error: function (e) {
-                    alert("匯入失敗，請檢查格式 (Status: " + e.status + ")");
+                    alert("系統錯誤，無法匯入檔案");
                 },
                 complete: function () {
                     $btn.prop('disabled', false).text("開始匯入");
@@ -98,9 +109,17 @@
             window.location.href = baseUrl + "/export";
         });
 
+        // 💡 5. 下載範本 (直接導向 URL 觸發下載)
+        $("#downloadTemplate").on("click", function () {
+            window.location.href = baseUrl + "/template";
+        });
+
         initPageSetup();
     });
 
+    /**
+     * 通用的 Ajax 傳送函式
+     */
     function sendAjax(type, url) {
         var jsonObj = $('#myform').serializeObject();
         $.ajax({
@@ -108,11 +127,22 @@
             type: type,
             contentType: "application/json; charset=utf-8",
             data: JSON.stringify(jsonObj),
-            success: function () { initPageSetup(); },
-            error: function (e) { alert("操作失敗，該分類可能仍有股票連結 (Status: " + e.status + ")"); }
+            success: function (res) { 
+                if (Number(res.code) === 200) {
+                    initPageSetup(); 
+                } else {
+                    alert("操作失敗：" + res.message);
+                }
+            },
+            error: function (e) { 
+                alert("系統連線失敗，請檢查網路或該分類是否仍有股票連結"); 
+            }
         });
     }
 
+    /**
+     * 初始化表單與表格
+     */
     function initPageSetup() {
         $('#myform').trigger("reset");
         $("#id").val("");
@@ -121,13 +151,23 @@
         table_list();
     }
 
+    /**
+     * 載入分類列表 (解包 res.data)
+     */
     function table_list() {
-        $.get("/portfolio/excel/classify/", function (datas) {
+        $.get("/portfolio/excel/classify/", function (res) {
+            if (Number(res.code) !== 200) {
+                console.error("無法載入列表：" + res.message);
+                return;
+            }
+
             var tbody = $("#myTable tbody");
             tbody.empty();
+
+            var datas = res.data;
             $.each(datas, function (i, item) {
                 var txBadge = item.tx 
-                    ? '<span class="badge bg-success px-3">是</span>' 
+                    ? '<span class="badge bg-success px-3">是 (支援)</span>' 
                     : '<span class="badge bg-secondary px-3">否</span>';
                 
                 var html = '<tr>' +
@@ -147,46 +187,54 @@
 <th:block th:replace="~{./include/navbar :: navbar}"></th:block>
 
 <div class="container pt-5 mt-4 pb-5">
+    
     <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3"><img width="40" th:src="@{/images/classify.png}" class="me-2"/>Classify 商品分類管理</h1>
+        <div>
+            <h1 class="h3 mb-1"><img width="40" th:src="@{/images/classify.png}" class="me-2"/><span th:text="${pageTitle}">分類管理</span></h1>
+            <small th:if="${currentUser != null}" class="text-secondary">
+                目前使用者：<span class="text-primary fw-bold" th:text="${currentUser}">User</span>
+            </small>
+        </div>
+
         <div class="d-flex border p-2 rounded bg-white shadow-sm align-items-center">
             <label class="small fw-bold me-2 mb-0 text-nowrap">Excel：</label>
-            <input type="file" id="excelFile" class="form-control form-control-sm me-2" accept=".xlsx" style="width: 180px;">
-            <button id="importExcel" class="btn btn-primary btn-sm text-nowrap me-2">開始匯入</button>
-            <button id="exportExcel" class="btn btn-outline-success btn-sm text-nowrap">
-                匯出 Excel
+            <input type="file" id="excelFile" class="form-control form-control-sm me-2" accept=".xlsx" style="width: 150px;">
+            <button id="importExcel" class="btn btn-primary btn-sm text-nowrap me-2 shadow-sm">開始匯入</button>
+            <button id="exportExcel" class="btn btn-outline-success btn-sm text-nowrap me-2">匯出</button>
+            <button id="downloadTemplate" class="btn btn-link btn-sm text-decoration-none text-nowrap">
+                <i class="bi bi-download me-1"></i>下載範本
             </button>
         </div>
     </div>
 
     <div class="card shadow-sm border-0 mb-5">
         <div class="card-header bg-white py-3">
-            <h5 class="card-title mb-0">分類資料編輯</h5>
+            <h5 class="card-title mb-0 fw-bold">分類資料編輯</h5>
         </div>
         <div class="card-body p-4">
             <form id="myform">
                 <div class="row g-4">
                     <div class="col-md-2">
-                        <label for="id" class="form-label fw-bold">ID</label>
+                        <label for="id" class="form-label fw-bold small text-muted">ID (唯讀)</label>
                         <input id="id" name="id" readonly class="form-control bg-light" placeholder="自動生成"/>
                     </div>
                     <div class="col-md-6">
-                        <label for="name" class="form-label fw-bold">分類名稱</label>
+                        <label for="name" class="form-label fw-bold small text-muted">分類名稱</label>
                         <input type="text" id="name" name="name" class="form-control" placeholder="請輸入分類名稱 (例如: 股票、ETF)" required/>
                     </div>
                     <div class="col-md-4 d-flex align-items-center mt-auto">
                         <div class="form-check form-switch mb-2 ms-2">
                             <input class="form-check-input" type="checkbox" id="tx" name="tx">
-                            <label class="form-check-label fw-bold" for="tx">支援交易 (TX)</label>
+                            <label class="form-check-label fw-bold" for="tx">支援交易 (Transaction Required)</label>
                         </div>
                     </div>
                 </div>
 
                 <div class="mt-4 pt-2">
-                    <button id="add" type="button" class="btn btn-success px-4 me-2">新增</button>
-                    <button id="upt" type="button" class="btn btn-info text-white px-4 me-2">修改</button>
-                    <button id="del" type="button" class="btn btn-danger px-4 me-2">刪除</button>
-                    <button id="rst" type="button" class="btn btn-warning px-4">重置</button>
+                    <button id="add" type="button" class="btn btn-success px-4 me-2 shadow-sm">新增</button>
+                    <button id="upt" type="button" class="btn btn-info text-white px-4 me-2 shadow-sm">修改</button>
+                    <button id="del" type="button" class="btn btn-danger px-4 me-2 shadow-sm">刪除</button>
+                    <button id="rst" type="button" class="btn btn-warning px-4 shadow-sm">重置</button>
                 </div>
             </form>
         </div>
@@ -194,15 +242,15 @@
 
     <div class="card shadow-sm border-0">
         <div class="card-header bg-white py-3">
-            <h5 class="card-title mb-0">商品分類列表</h5>
+            <h5 class="card-title mb-0 fw-bold">商品分類列表</h5>
         </div>
         <div class="table-responsive">
             <table id="myTable" class="table table-hover align-middle mb-0">
                 <thead class="table-light text-secondary">
                     <tr>
                         <th width="100">ID</th>
-                        <th>分類名稱</th>
-                        <th>支援交易 (TX)</th>
+                        <th>分類名稱 (Classify Name)</th>
+                        <th>支援交易 (TX Support)</th>
                     </tr>
                 </thead>
                 <tbody>

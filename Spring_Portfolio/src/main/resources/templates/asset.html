@@ -53,18 +53,23 @@
             });
         }
 
-        function update() {
-            $.get("/portfolio/investor/" + session_investor_id, function (res) {
-                const response = (typeof res === 'string') ? JSON.parse(res) : res;
-                if (Number(response.code) === 200) {
-                    const investor = response.data;
-                    $("#balance").text(numberFormat(investor.balance));
-                    const list = investor.portfolios || investor.tPortfolios || investor.tportfolios || [];
-                    table_list(list);
-                    chart(list);
-                }
-            });
-        }
+		// 在 update 函式中
+		function update() {
+		    $.get("/portfolio/investor/" + session_investor_id, function (res) {
+		        const response = (typeof res === 'string') ? JSON.parse(res) : res;
+		        if (Number(response.code) === 200) {
+		            const investor = response.data;
+		            const balance = parseFloat(investor.balance) || 0; // 取得餘額
+		            
+		            $("#balance").text(numberFormat(balance));
+		            const list = investor.portfolios || investor.tPortfolios || investor.tportfolios || [];
+		            
+		            table_list(list);
+		            chart(list, balance); // <--- 修改這裡，多傳入 balance
+		        }
+		    });
+		}
+
 
         function table_list(datas) {
             const tbody = $("#myTable tbody");

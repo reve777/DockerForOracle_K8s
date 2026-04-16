@@ -24,10 +24,14 @@ public class InvestorController {
 		return investorService.getAll();
 	}
 
-	// 取得單個投資人
-	@GetMapping({ "/{id}", "/get/{id}" })
+	@GetMapping("/{id}")
 	public Investor get(@PathVariable("id") Integer id) {
-		return investorService.getById(id);
+	    Investor investor = investorService.getById(id);
+	    // 💡 在回傳前，可以在這裡印一下 log 確認 Java 程式內部到底有沒有資料
+	    if (investor != null) {
+	        System.out.println("偵測到投資組合數量: " + investor.getPortfolios().size());
+	    }
+	    return investor;
 	}
 
 	// 新增投資人

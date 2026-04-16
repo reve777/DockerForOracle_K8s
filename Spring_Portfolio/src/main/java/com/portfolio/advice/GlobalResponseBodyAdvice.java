@@ -40,47 +40,56 @@ public class GlobalResponseBodyAdvice implements ResponseBodyAdvice<Object> {
 
 	@Override
 	public boolean supports(@NonNull MethodParameter returnType,
-	        @NonNull Class<? extends HttpMessageConverter<?>> converterType) {
-	    
-	    // 1. 原有的排除條件
-	    boolean isNotWrapped = !ResponseEntity.class.isAssignableFrom(returnType.getParameterType())
-	            && !ApiResponse.class.isAssignableFrom(returnType.getParameterType());
+			@NonNull Class<? extends HttpMessageConverter<?>> converterType) {
 
-	    // 2. 額外排除：如果是 String 且回傳的是視圖名稱（Thymeleaf/JSP），通常不包裝
-	    // 或者你可以根據是否有特定 Annotation 來決定要不要包裝
-	    return !returnType.getParameterType().equals(void.class) && 
-	            !returnType.getParameterType().isAssignableFrom(Resource.class);
+		// 1. 原有的排除條件
+		boolean isNotWrapped = !ResponseEntity.class.isAssignableFrom(returnType.getParameterType())
+				&& !ApiResponse.class.isAssignableFrom(returnType.getParameterType());
+
+		// 2. 額外排除：如果是 String 且回傳的是視圖名稱（Thymeleaf/JSP），通常不包裝
+		// 或者你可以根據是否有特定 Annotation 來決定要不要包裝
+		return !returnType.getParameterType().equals(void.class) &&
+				!returnType.getParameterType().isAssignableFrom(Resource.class);
 	}
 
 	@Override
 	public Object beforeBodyWrite(@Nullable Object body, @NonNull MethodParameter returnType,
-			@Nullable MediaType mediaType, @NonNull Class<? extends HttpMessageConverter<?>> converterType,
+			@NonNull MediaType mediaType, @NonNull Class<? extends HttpMessageConverter<?>> converterType,
 			@NonNull ServerHttpRequest request, @NonNull ServerHttpResponse response) {
 
-		// 已包裝或二進位資料，直接放行
+		// 1. 如果 body 已經是 ApiResponse 類型或二進位資料，直接放行不做二次包裝
 		if (body instanceof ApiResponse || body instanceof byte[]) {
 			return body;
 		}
 
-		// String 類型需特殊處理，避免 HttpMessageConverter 類型衝突
+		// 2. 針對 String 類型進行特殊處理
 		if (body instanceof String) {
-			if (mediaType != null && (MediaType.TEXT_PLAIN.isCompatibleWith(mediaType)
-					|| MediaType.TEXT_HTML.isCompatibleWith(mediaType))) {
+			// 如果 MediaType 是 TEXT_HTML，通常代表是 Thymeleaf 回傳的頁面路徑，直接回傳不包裝
+			if (mediaType.isCompatibleWith(MediaType.TEXT_HTML)) {
 				return body;
 			}
+
 			try {
+				// 強制將回傳 Header 的 Content-Type 改為 application/json
+				response.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+
+				// 將字串包裝進 ApiResponse，並透過 ObjectMapper 轉為 JSON 格式的字串
+				// 這樣前端接收到的會是 {"code": 200, "message": "成功", "data": "你的字串內容"}
 				return objectMapper.writeValueAsString(buildApiResponse(body));
 			} catch (JsonProcessingException e) {
-				log.error("[GlobalResponseBodyAdvice] JSON 序列化失敗", e);
+				log.error("[GlobalResponseBodyAdvice] String 類型包裝 JSON 失敗", e);
+				// 萬一轉換失敗，退而求其次回傳原始字串
 				return body;
 			}
 		}
 
+		// 3. 其他非 String 類型（如 POJO, List, Map 等），統一呼叫封裝方法
 		return buildApiResponse(body);
 	}
 
 	/**
-	 * 建立統一的 ApiResponse 物件 若為 Spring Data 的 Page 物件，額外拆解分頁資訊
+	 * 建立統一的 ApiResponse 物件
+	 * 若為 Spring Data 的 Page 物件，則拆解分頁資訊
 	 */
 	private ApiResponse buildApiResponse(Object body) {
 		if (body instanceof Page<?> page) {
@@ -92,7 +101,7 @@ public class GlobalResponseBodyAdvice implements ResponseBodyAdvice<Object> {
 			pageData.put("totalPages", page.getTotalPages());
 			return ApiResponse.success(pageData);
 		}
-
+		// 一般物件包裝
 		return ApiResponse.success(body);
 	}
 }

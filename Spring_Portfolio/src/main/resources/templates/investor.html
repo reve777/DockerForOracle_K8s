@@ -1,239 +1,260 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>Investor 投資人管理系統</title>
+    <meta charset="UTF-8">
+    <title>Watch List 觀測名單</title>
 
-<th:block th:replace="~{./include/header :: headerContent}"></th:block>
+    <th:block th:replace="~{./include/header :: headerContent}"></th:block>
 
-<script th:inline="javascript">
-/*<![CDATA[*/
+    <style>
+        /* 表格與 UI 優化 */
+        .table th, .table td { vertical-align: middle; }
+        .table td.number-right, .table th.number-right { text-align: right; font-family: 'Courier New', monospace; }
+        .table td.text-center, .table th.text-center { text-align: center; }
+        .table td.symbol-cell { cursor: pointer; color: #0d6efd; font-weight: bold; }
+        .table td.symbol-cell:hover { text-decoration: underline; }
+        #container { border: 1px solid #dee2e6; border-radius: 8px; background-color: white; margin-top: 20px; }
+        .buy-btn { font-weight: bold; }
+    </style>
 
-/**
- * 將表單資料轉為 JSON 物件
- */
-$.fn.serializeObject = function () {
-    var o = {};
-    var a = this.serializeArray();
-    $.each(a, function () {
-        if (o[this.name]) {
-            if (!o[this.name].push) o[this.name] = [o[this.name]];
-            o[this.name].push(this.value || '');
-        } else {
-            o[this.name] = ($(this).attr('type') === 'checkbox') ? $(this).is(':checked') : (this.value || '');
-        }
-    });
-    return o;
-};
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
 
-// 💡 取得當前登入者的 investor_id
-var session_investor_id = /*[[${session.investor_id}]]*/ null;
+    <script th:inline="javascript">
+    /*<![CDATA[*/
+        // 取得 Session 中的 watch_id
+        var session_watch_id = /*[[${session.watch_id}]]*/ -1; 
 
-$(document).ready(function () {
-    
-    // 💡 補上 CSRF 全域設定
-    var token = $("meta[name='_csrf']").attr("content");
-    var header = $("meta[name='_csrf_header']").attr("content");
-    $(document).ajaxSend(function(e, xhr, options) {
-        if (header && token) {
-            xhr.setRequestHeader(header, token);
-        }
-    });
+        $(document).ready(function () {
+            // 1. CSRF Token 全域設定 (確保 POST/PUT/DELETE 正常運作)
+            var token = $("meta[name='_csrf']").attr("content");
+            var header = $("meta[name='_csrf_header']").attr("content");
+            $(document).ajaxSend(function(e, xhr, options) {
+                if (header && token) {
+                    xhr.setRequestHeader(header, token);
+                }
+            });
 
-    // 1. 點擊表格列載入資料到表單 (已修正包裝路徑與型態判斷)
-    $("#myTable").on("click", "tr", function () {
-        var id = $(this).find('td').eq(0).text().trim();
-        if (!id) return;
+            // 2. 初始載入列表
+            loadWatchList();
 
-        $.get("/portfolio/investor/" + id, function (res) {
-            // 💡 使用 Number() 確保字串 "200" 也能正確通過嚴格比較
-            if (Number(res.code) === 200) {
-                $('#add').attr('disabled', true);
-                $('#upt, #del').attr('disabled', false);
+            // 3. 點擊股票代號切換圖表
+            $("#myTable").on("click", ".symbol-cell", function () {
+                var symbol = $(this).text();
+                queryHistQuotes(symbol);
+            });
+
+            // 4. 買進下單邏輯
+            $("#myTable").on("click", ".buy-btn", function () {
+                var tstock_id = $(this).attr('tstock_id');
+                var stockName = $(this).closest('tr').find('td:nth-child(2)').text();
                 
-                var investor = res.data;
-                $("#id").val(investor.id);
-                $("#username").val(investor.username);
-                $("#email").val(investor.email);
-                $("#balance").val(investor.balance);
-            } else {
-                alert("取得資料失敗：" + res.message);
-            }
+                if (!tstock_id) return;
+
+                if (confirm("是否要買進 " + stockName + "？")) {
+                    let amount = prompt("請輸入購買股數 (請以1000股為單位)？", "1000");
+                    if (amount === null) return; 
+                    
+                    let qty = parseInt(amount);
+                    if (qty % 1000 !== 0 || isNaN(qty) || qty <= 0) {
+                        alert('請輸入1000的倍數 (1張=1000股)');
+                        return;
+                    }
+
+                    // 呼叫下單 API
+                    $.ajax({
+                        url: "/portfolio/order/buy/" + tstock_id + "/" + qty,
+                        type: "GET", 
+                        success: function(res) {
+                            if (Number(res.code) === 200) {
+                                alert('成交回報: ' + res.data);
+                                if(confirm("下單成功！是否前往『我的資產』查看？")) {
+                                    window.location.href = "/portfolio/asset";
+                                }
+                            } else {
+                                alert('下單失敗: ' + res.message);
+                            }
+                        },
+                        error: function(xhr) {
+                            alert('下單失敗: 連線錯誤或權限不足');
+                        }
+                    });
+                }
+            });
         });
-    });
 
-    // 2. 新增、修改、刪除按鈕事件
-    $("#add").on("click", function () { sendAjax("POST", "/portfolio/investor/"); });
-    $("#upt").on("click", function () { sendAjax("PUT", "/portfolio/investor/" + $("#id").val()); });
-    $("#del").on("click", function () { 
-        if(confirm("確定要刪除此投資人嗎？")) {
-            sendAjax("DELETE", "/portfolio/investor/" + $("#id").val()); 
-        }
-    });
-    
-    // 3. 重置按鈕
-    $("#rst").on("click", function() { initPageSetup(); });
-
-    // 4. 切換投資人身份按鈕
-    $("#myTable").on("click", ".login-btn", function(e) {
-        e.stopPropagation();
-        var investor_id = $(this).attr('data-investor-id');
-        window.location.href = '/portfolio/page/investor?investor_id=' + investor_id;
-    });
-
-    // 5. Excel 匯出按鈕
-    $("#exportExcel").on("click", function () {
-        window.location.href = "/portfolio/investor/export";
-    });
-
-    initPageSetup();
-});
-
-/**
- * 通用的 Ajax 傳送函式 (已加上型態強制轉型)
- */
-function sendAjax(type, url) {
-    var jsonObj = $('#myform').serializeObject();
-    $.ajax({
-        url: url,
-        type: type,
-        contentType: "application/json; charset=utf-8",
-        data: JSON.stringify(jsonObj),
-        success: function (res) { 
-            if (Number(res.code) === 200) {
-                initPageSetup(); 
-            } else {
-                alert("操作失敗：" + res.message);
+        /**
+         * 載入觀測名單
+         */
+        function loadWatchList() {
+            if (session_watch_id === -1) {
+                console.warn("未設定 watch_id");
+                return;
             }
-        },
-        error: function(e){ 
-            console.error(e);
-            alert("系統錯誤，狀態碼：" + e.status); 
-        }
-    });
-}
+            
+            $.get("/portfolio/watch/" + session_watch_id, function (res) {
+                if (Number(res.code) !== 200) {
+                    console.error("無法載入名單: " + res.message);
+                    return;
+                }
 
-/**
- * 初始化表單與表格
- */
-function initPageSetup() {
-    $('#myform').trigger("reset");
-    $("#id").val(""); 
-    $('#add').attr('disabled', false);
-    $('#upt, #del').attr('disabled', true);
-    table_list();
-}
+                var tbody = $("#myTable tbody");
+                tbody.empty();
+                
+                // 處理資料路徑 (可能存在於 data 或 data.tStocks)
+                var watchObj = res.data;
+                var list = watchObj.tStocks || watchObj.tstocks || [];
 
-/**
- * 載入投資人列表 (已修正包裝路徑與型態判斷)
- */
-function table_list() {
-    $.get("/portfolio/investor/", function (res) {
-        // 💡 這裡使用 Number() !== 200 避免將成功訊息誤判為錯誤
-        if (Number(res.code) !== 200) {
-            console.error("無法載入列表 (Code: " + res.code + "): " + res.message);
-            return;
-        }
+                if (list.length === 0) {
+                    tbody.append('<tr><td colspan="10" class="text-center text-muted py-4">目前名單內無股票</td></tr>');
+                    return;
+                }
 
-        var tbody = $("#myTable tbody");
-        tbody.empty();
-
-        var datas = res.data;
-
-        $.each(datas, function (i, item) {
-            var loginBtnHtml = '';
-            if (session_investor_id == item.id) {
-                loginBtnHtml = '<span class="badge bg-primary px-3 py-2">當前帳戶</span>';
-            } else {
-                loginBtnHtml = '<button type="button" class="btn btn-outline-success btn-sm login-btn" data-investor-id="' + item.id + '">登入身份</button>';
-            }
-
-            var html = '<tr>' +
-                '<td class="fw-bold">' + item.id + '</td>' +
-                '<td>' + item.username + '</td>' +
-                '<td>' + item.email + '</td>' +
-                '<td>' + (item.balance ? item.balance.toLocaleString() : 0) + '</td>' +
-                '<td class="text-center">' + loginBtnHtml + '</td>' +
-                '</tr>';
-            tbody.append(html);
-        });
-    });
-}
-
-/*]]>*/
-</script>
-</head>
-<body class="bg-light">
-
-<th:block th:replace="~{./include/navbar :: navbar}"></th:block>
-
-<div class="container pt-5 mt-4 pb-5">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h1 class="h3"><img width="40" th:src="@{/images/user.png}" class="me-2"/>Investor 投資人管理</h1>
-        <button id="exportExcel" class="btn btn-outline-secondary">匯出 Excel</button>
-    </div>
-
-    <div class="card shadow-sm border-0 mb-5">
-        <div class="card-header bg-white py-3">
-            <h5 class="card-title mb-0">基本資料編輯</h5>
-        </div>
-        <div class="card-body p-4">
-            <form id="myform">
-                <div class="row g-4">
-                    <div class="col-md-2">
-                        <label for="id" class="form-label fw-bold">ID</label>
-                        <input id="id" name="id" readonly class="form-control bg-light" placeholder="自動生成"/>
-                    </div>
-                    <div class="col-md-5">
-                        <label for="username" class="form-label fw-bold">投資人帳號</label>
-                        <input type="text" id="username" name="username" class="form-control" placeholder="請輸入帳號" required/>
-                    </div>
-                    <div class="col-md-5">
-                        <label for="email" class="form-label fw-bold">電子郵件</label>
-                        <input type="email" id="email" name="email" class="form-control" placeholder="example@mail.com"/>
-                    </div>
-                    <div class="col-md-12">
-                        <label for="balance" class="form-label fw-bold">可用資金 (Balance)</label>
-                        <div class="input-group">
-                            <span class="input-group-text">$</span>
-                            <input type="number" id="balance" name="balance" class="form-control" placeholder="0.00"/>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="mt-4 pt-2">
-                    <button id="add" type="button" class="btn btn-success px-4 me-2">新增</button>
-                    <button id="upt" type="button" class="btn btn-info text-white px-4 me-2">修改</button>
-                    <button id="del" type="button" class="btn btn-danger px-4 me-2">刪除</button>
-                    <button id="rst" type="button" class="btn btn-warning px-4">重置</button>
-                </div>
-            </form>
-        </div>
-    </div>
-
-    <div class="card shadow-sm border-0">
-        <div class="card-header bg-white py-3">
-            <h5 class="card-title mb-0">投資人清單</h5>
-        </div>
-        <div class="table-responsive">
-            <table id="myTable" class="table table-hover align-middle mb-0">
-                <thead class="table-light text-secondary">
+                list.forEach(function(item) {
+                    let tx_status = (item.classify && item.classify.tx);
+                    // 💡 使用反引號 (Template Literals) 解決 HTML 拼接問題
+                    let buybtn_html = tx_status ? 
+                        `<button class="btn btn-success btn-sm buy-btn" tstock_id="${item.id}">下單</button>` : 
+                        `<span class="badge bg-secondary">停止交易</span>`;
+                    
+                    let changeClass = item.changePrice >= 0 ? 'text-danger' : 'text-success';
+                    
+                    let html = `
                     <tr>
-                        <th width="80">ID</th>
-                        <th>帳號 (Username)</th>
-                        <th>電子郵件 (Email)</th>
-                        <th>可用資金 (Balance)</th>
-                        <th class="text-center" width="150">身份操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            </table>
+                        <td class="text-center">
+                            <span class="badge bg-light text-dark border">${item.classify ? item.classify.name : '未分類'}</span>
+                        </td>
+                        <td class="fw-bold">${item.name}</td>
+                        <td class="symbol-cell">${item.symbol}</td>
+                        <td class="number-right">${item.preClosed}</td>
+                        <td class="number-right text-primary fw-bold">${item.price}</td>
+                        <td class="number-right ${changeClass}">${item.changePrice}</td>
+                        <td class="number-right ${changeClass}">${item.changeInPercent}%</td>
+                        <td class="number-right">${numberFormat(item.volume || item.volumn)}</td>
+                        <td class="text-center small">${getYMDHMS(item.transactionDate)}</td>
+                        <td class="text-center">${buybtn_html}</td>
+                    </tr>`;
+                    tbody.append(html);
+                });
+
+                // 預設載入第一檔股票的歷史 K 線
+                if (list.length > 0) queryHistQuotes(list[0].symbol);
+            });
+        }
+
+        /**
+         * 數字格式化 (加千分位)
+         */
+        function numberFormat(num) { 
+            return num ? num.toLocaleString('zh-TW') : '0'; 
+        }
+        
+        /**
+         * 日期格式化 (MM/DD HH:mm)
+         */
+        function getYMDHMS(dateStr) {
+            if (!dateStr) return '';
+            var dt = new Date(dateStr);
+            return (dt.getMonth()+1) + '/' + dt.getDate() + ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
+        }
+        
+        function pad(num) { return num < 10 ? '0' + num : num; }
+
+        // Google Chart 載入設定
+        google.charts.load('current', {packages: ['corechart']});
+
+        /**
+         * 查詢歷史報價
+         */
+        function queryHistQuotes(symbol) {
+            $.get("/portfolio/price/histquotes/" + symbol, function (res) {
+                if (Number(res.code) === 200 && res.data && res.data.length > 0) {
+                    drawChart(symbol, res.data);
+                } else {
+                    $("#container").html('<div class="p-5 text-center text-muted">暫無歷史數據</div>');
+                }
+            });
+        }
+
+        /**
+         * 繪製日K線圖
+         */
+        function drawChart(symbol, quotes) {
+            var data = new google.visualization.DataTable();
+            data.addColumn('string', 'Date');
+            data.addColumn('number', 'Low');
+            data.addColumn('number', 'Open');
+            data.addColumn('number', 'Close');
+            data.addColumn('number', 'High');
+
+            quotes.forEach(function(item) {
+                data.addRow([
+                    item.date.substring(5), // 格式簡化為 MM-DD
+                    parseFloat(item.low || 0),
+                    parseFloat(item.open || 0),
+                    parseFloat(item.close || 0),
+                    parseFloat(item.high || 0)
+                ]);
+            });
+
+            var options = {
+                title: symbol + ' 歷史走勢 (日K)',
+                legend: 'none',
+                candlestick: {
+                    fallingColor: { strokeWidth: 0, fill: '#198754' }, // 跌：綠 (Bootstrap Success)
+                    risingColor: { strokeWidth: 0, fill: '#dc3545' }   // 漲：紅 (Bootstrap Danger)
+                },
+                chartArea: { left: '10%', width: '85%', height: '70%' },
+                hAxis: { slantedText: true, slantedTextAngle: 45 }
+            };
+
+            var chart = new google.visualization.CandlestickChart(document.getElementById('container'));
+            chart.draw(data, options);
+        }
+    /*]]>*/
+    </script>
+</head>
+
+<body class="bg-light">
+    <th:block th:replace="~{./include/navbar :: navbar}"></th:block>
+
+    <div class="container pt-5 mt-4 pb-5">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="fw-bold text-dark">Watch List 觀測名單</h2>
+            <button class="btn btn-outline-secondary btn-sm" onclick="loadWatchList()">
+                <i class="bi bi-arrow-clockwise"></i> 手動刷新
+            </button>
+        </div>
+
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="table-responsive">
+                <table id="myTable" class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-center">分類</th>
+                            <th>名稱</th>
+                            <th>代號</th>
+                            <th class="number-right">昨收</th>
+                            <th class="number-right">報價</th>
+                            <th class="number-right">漲跌</th>
+                            <th class="number-right">漲跌幅</th>
+                            <th class="number-right">交易量</th>
+                            <th class="text-center">交易時間</th>
+                            <th class="text-center">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card border-0 shadow-sm p-3">
+            <div id="container" style="width:100%; height:500px;">
+                <div class="text-center p-5 text-muted">正在載入圖表...</div>
+            </div>
         </div>
     </div>
-</div>
 
-<th:block th:replace="~{./include/footer :: footer}"></th:block>
-
+    <th:block th:replace="~{./include/footer :: footer}"></th:block>
 </body>
 </html>

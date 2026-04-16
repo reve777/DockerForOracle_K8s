@@ -2,128 +2,122 @@
 <html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<title>Classify 商品分類</title>
+<title>Classify 商品分類管理</title>
 
 <th:block th:replace="~{./include/header :: headerContent}"></th:block>
-
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
 <script th:inline="javascript">
 /*<![CDATA[*/
 
-// 將表單轉成 JSON 物件
+/**
+ * 將表單資料轉為 JSON 物件
+ */
 $.fn.serializeObject = function () {
     var o = {};
     var a = this.serializeArray();
     $.each(a, function () {
         if (o[this.name]) {
-            if (!o[this.name].push) {
-                o[this.name] = [o[this.name]];
-            }
+            if (!o[this.name].push) o[this.name] = [o[this.name]];
             o[this.name].push(this.value || '');
         } else {
-            if($(this).attr('type') === 'checkbox') {
-                o[this.name] = $(this).is(':checked');
-            } else {
-                o[this.name] = this.value || '';
-            }
+            o[this.name] = ($(this).attr('type') === 'checkbox') ? $(this).is(':checked') : (this.value || '');
         }
     });
     return o;
 };
 
 $(document).ready(function () {
-
-    // 💡 1. CSRF 全域設定：從 header.html 定義的 meta 標籤中抓取 token
+    
+    // CSRF 全域設定
     var token = $("meta[name='_csrf']").attr("content");
     var header = $("meta[name='_csrf_header']").attr("content");
-
     $(document).ajaxSend(function(e, xhr, options) {
         if (header && token) {
             xhr.setRequestHeader(header, token);
         }
     });
 
-    // 2. 點擊表格列讀取資料
+    // 1. 點擊表格列載入資料到表單
     $("#myTable").on("click", "tr", function () {
         var id = $(this).find('td').eq(0).text().trim();
         if (!id) return;
 
-        $.get("/portfolio/classify/" + id, function (data) {
-            $('#myform').trigger("reset");
-            $('#add').attr('disabled', true);
-            $('#upt, #del').attr('disabled', false);
-
-            $("#id").val(data.id);
-            $("#name").val(data.name);
-            $("#tx").prop('checked', data.tx);
+        $.get("/portfolio/classify/" + id, function (res) {
+            if (Number(res.code) === 200) {
+                $('#add').attr('disabled', true);
+                $('#upt, #del').attr('disabled', false);
+                
+                var data = res.data;
+                $("#id").val(data.id);
+                $("#name").val(data.name);
+                $("#tx").prop('checked', data.tx);
+            } else {
+                alert("取得資料失敗：" + res.message);
+            }
         });
     });
 
-    // 3. 新增
-    $("#add").on("click", function () {
-        var jsonObj = $('#myform').serializeObject();
-        $.ajax({
-            url: "/portfolio/classify/",
-            type: "POST",
-            contentType: "application/json; charset=utf-8",
-            data: JSON.stringify(jsonObj),
-            success: function () { initPageSetup(); },
-            error: function(e){ console.error(e); alert("新增失敗"); }
-        });
+    // 2. 按鈕事件
+    $("#add").on("click", function () { sendAjax("POST", "/portfolio/classify/"); });
+    $("#upt").on("click", function () { sendAjax("PUT", "/portfolio/classify/" + $("#id").val()); });
+    $("#del").on("click", function () { 
+        if(confirm("確定要刪除嗎？")) {
+            sendAjax("DELETE", "/portfolio/classify/" + $("#id").val()); 
+        }
     });
-
-    // 4. 修改
-    $("#upt").on("click", function () {
-        var jsonObj = $('#myform').serializeObject();
-        $.ajax({
-            url: "/portfolio/classify/" + jsonObj.id,
-            type: "PUT",
-            contentType: "application/json; charset=utf-8",
-            data: JSON.stringify(jsonObj),
-            success: function () { initPageSetup(); },
-            error: function(e){ console.error(e); alert("修改失敗"); }
-        });
-    });
-
-    // 5. 刪除
-    $("#del").on("click", function () {
-        var id = $("#id").val();
-        if(!id) return;
-        if(!confirm("確定要刪除嗎？")) return;
-
-        $.ajax({
-            url: "/portfolio/classify/" + id,
-            type: "DELETE",
-            success: function () { initPageSetup(); },
-            error: function(e){ console.error(e); alert("此商品分類底下仍有股票，無法刪除"); }
-        });
-    });
-
-    // 6. 重置
     $("#rst").on("click", function() { initPageSetup(); });
 
-    // 初始化頁面
     initPageSetup();
 });
 
-// 初始化表單狀態與表格
+/**
+ * 通用的 Ajax 傳送函式
+ */
+function sendAjax(type, url) {
+    var jsonObj = $('#myform').serializeObject();
+    $.ajax({
+        url: url,
+        type: type,
+        contentType: "application/json; charset=utf-8",
+        data: JSON.stringify(jsonObj),
+        success: function (res) { 
+            if (Number(res.code) === 200) {
+                initPageSetup(); 
+            } else {
+                alert("操作失敗：" + res.message);
+            }
+        },
+        error: function(e){ 
+            console.error(e);
+            alert("系統錯誤"); 
+        }
+    });
+}
+
 function initPageSetup() {
     $('#myform').trigger("reset");
-    $("#id").val(""); // 確保 ID 欄位被清空
+    $("#id").val(""); 
     $('#add').attr('disabled', false);
     $('#upt, #del').attr('disabled', true);
     table_list();
 }
 
-// 載入 Classify 資料表格
+/**
+ * 載入列表
+ */
 function table_list() {
-    $.get("/portfolio/classify/", function (datas) {
+    $.get("/portfolio/classify/", function (res) {
+        if (Number(res.code) !== 200) {
+            console.error("無法載入列表: " + res.message);
+            return;
+        }
+
         var tbody = $("#myTable tbody");
         tbody.empty();
-        $.each(datas, function (i, item) {
+
+        $.each(res.data, function (i, item) {
             var html = '<tr>' +
-                '<td>' + item.id + '</td>' +
+                '<td class="fw-bold">' + item.id + '</td>' +
                 '<td>' + item.name + '</td>' +
                 '<td>' + (item.tx ? '<span class="badge bg-success">是</span>' : '<span class="badge bg-secondary">否</span>') + '</td>' +
                 '</tr>';
@@ -131,6 +125,7 @@ function table_list() {
         });
     });
 }
+
 /*]]>*/
 </script>
 </head>
@@ -138,12 +133,12 @@ function table_list() {
 
 <th:block th:replace="~{./include/navbar :: navbar}"></th:block>
 
-<div class="container mt-5 pb-5">
+<div class="container pt-5 mt-4 pb-5">
     <div class="card shadow-sm border-0 mb-4">
         <div class="card-header bg-white py-3">
             <h1 class="h3 mb-0">Classify 商品分類管理</h1>
         </div>
-        <div class="card-body">
+        <div class="card-body p-4">
             <form id="myform">
                 <div class="mb-3 row">
                     <label for="id" class="col-sm-2 col-form-label fw-bold">ID</label>
@@ -170,10 +165,10 @@ function table_list() {
 
                 <div class="row">
                     <div class="col-sm-10 offset-sm-2">
-                        <button id="add" type="button" class="btn btn-success me-1">新增</button>
-                        <button id="upt" type="button" class="btn btn-info text-white me-1">修改</button>
-                        <button id="del" type="button" class="btn btn-danger me-1">刪除</button>
-                        <button id="rst" type="button" class="btn btn-warning">重置</button>
+                        <button id="add" type="button" class="btn btn-success px-4 me-2">新增</button>
+                        <button id="upt" type="button" class="btn btn-info text-white px-4 me-2">修改</button>
+                        <button id="del" type="button" class="btn btn-danger px-4 me-2">刪除</button>
+                        <button id="rst" type="button" class="btn btn-warning px-4">重置</button>
                     </div>
                 </div>
             </form>

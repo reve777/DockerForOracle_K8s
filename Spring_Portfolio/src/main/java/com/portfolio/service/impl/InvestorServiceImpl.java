@@ -30,10 +30,10 @@ public class InvestorServiceImpl implements InvestorService {
 	}
 
 	@Override
-	public Investor getById(Integer id) {
-		Optional<Investor> opt = investorRepository.findById(id);
-		return opt.orElse(null);
-	}
+	@Transactional(readOnly = true) // 💡 確保在同一個 Session 內完成關聯抓取
+    public Investor getById(Integer id) {
+        return investorRepository.findById(id).orElse(null);
+    }
 
 	@Override
 	@Transactional

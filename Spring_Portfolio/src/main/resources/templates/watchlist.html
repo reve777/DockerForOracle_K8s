@@ -21,7 +21,7 @@
 
     <script th:inline="javascript">
     /*<![CDATA[*/
-        // 修正點：使用 /*[[...]]*/ 寫法並加上預設值 -1
+        // 使用 session.watch_id
         var session_watch_id = /*[[${session.watch_id}]]*/ -1; 
 
         $(document).ready(function () {
@@ -33,11 +33,6 @@
                     xhr.setRequestHeader(header, token);
                 }
             });
-
-            // 檢查 watch_id
-            if (session_watch_id === -1) {
-                console.warn("未找到觀測名單 ID");
-            }
 
             // 2. 初始載入列表
             loadWatchList();
@@ -68,27 +63,43 @@
                     $.ajax({
                         url: "/portfolio/order/buy/" + tstock_id + "/" + qty,
                         type: "GET", 
-                        success: function(response) {
-                            alert('成交回報: ' + response);
-                            if(confirm("下單成功！是否前往『我的資產』查看？")) {
-                                window.location.href = "/portfolio/asset";
+                        success: function(res) {
+                            // 這裡假設 order API 也統一了回傳格式
+                            if (Number(res.code) === 200) {
+                                alert('成交回報: ' + res.data);
+                                if(confirm("下單成功！是否前往『我的資產』查看？")) {
+                                    window.location.href = "/portfolio/asset";
+                                }
+                            } else {
+                                alert('下單失敗: ' + res.message);
                             }
                         },
                         error: function(xhr) {
-                            alert('下單失敗: ' + (xhr.responseText || '連線錯誤'));
+                            alert('下單失敗: 連線錯誤');
                         }
                     });
                 }
             });
         });
 
+        /**
+         * 載入觀測名單列表
+         */
         function loadWatchList() {
             if (session_watch_id === -1) return;
-            $.get("/portfolio/watch/" + session_watch_id, function (data) {
+            $.get("/portfolio/watch/" + session_watch_id, function (res) {
+                if (Number(res.code) !== 200) {
+                    console.error("無法載入名單: " + res.message);
+                    return;
+                }
+
                 var tbody = $("#myTable tbody");
                 tbody.empty();
                 
-                var list = data.tStocks || data.tstocks || [];
+                // 從 res.data 取出 Watch 物件，再拿其中的 tStocks
+                var watchObj = res.data;
+                var list = watchObj.tStocks || watchObj.tstocks || [];
+
                 if (list.length === 0) {
                     tbody.append('<tr><td colspan="10" class="text-center text-muted py-4">目前名單內無股票</td></tr>');
                     return;
@@ -117,30 +128,40 @@
                     tbody.append(html);
                 });
 
+                // 預設畫出第一檔股票的圖表
                 if (list.length > 0) queryHistQuotes(list[0].symbol);
             });
         }
 
         function numberFormat(num) { return num ? num.toLocaleString('zh-TW') : '0'; }
+        
         function getYMDHMS(dateStr) {
             if (!dateStr) return '';
             var dt = new Date(dateStr);
             return (dt.getMonth()+1) + '/' + dt.getDate() + ' ' + pad(dt.getHours()) + ':' + pad(dt.getMinutes());
         }
+        
         function pad(num) { return num < 10 ? '0' + num : num; }
 
+        // Google Chart 載入
         google.charts.load('current', {packages: ['corechart']});
 
+        /**
+         * 查詢歷史報價
+         */
         function queryHistQuotes(symbol) {
-            $.get("/portfolio/price/histquotes/" + symbol, function (quotes) {
-                if (quotes && quotes.length > 0) {
-                    drawChart(symbol, quotes);
+            $.get("/portfolio/price/histquotes/" + symbol, function (res) {
+                if (Number(res.code) === 200 && res.data && res.data.length > 0) {
+                    drawChart(symbol, res.data);
                 } else {
                     $("#container").html('<div class="p-5 text-center text-muted">暫無歷史數據</div>');
                 }
             });
         }
 
+        /**
+         * 繪製 K 線圖
+         */
         function drawChart(symbol, quotes) {
             var data = new google.visualization.DataTable();
             data.addColumn('string', 'Date');
@@ -163,8 +184,8 @@
                 title: symbol + ' 歷史走勢 (日K)',
                 legend: 'none',
                 candlestick: {
-                    fallingColor: { strokeWidth: 0, fill: '#198754' }, 
-                    risingColor: { strokeWidth: 0, fill: '#dc3545' }   
+                    fallingColor: { strokeWidth: 0, fill: '#198754' }, // 跌：綠
+                    risingColor: { strokeWidth: 0, fill: '#dc3545' }   // 漲：紅
                 },
                 chartArea: { left: '10%', width: '85%', height: '70%' }
             };

@@ -1,19 +1,73 @@
 <!DOCTYPE html>
-<html xmlns:th="http://www.thymeleaf.org">
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
-    <title>Login Form</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>系統登入 - Investor 管理系統</title>
     <link rel="stylesheet" href="https://unpkg.com/purecss@2.0.6/build/pure-min.css">
     <style>
-        body { padding: 20px; }
-        .message { margin-bottom: 10px; font-weight: bold; }
-        .message.error { color: red; }
-        .message.success { color: green; }
-        .login-container { max-width: 400px; margin: auto; }
-        fieldset { border: 1px solid #ccc; padding: 20px; }
-        legend { font-size: 1.2em; font-weight: bold; }
-        input[type="text"], input[type="password"] { width: 100%; margin-bottom: 10px; padding: 8px; }
-        button { width: 100%; padding: 10px; }
+        body { 
+            background-color: #f8f9fa; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+        }
+        .login-container { 
+            width: 100%; 
+            max-width: 400px; 
+            background: white; 
+            padding: 30px; 
+            border-radius: 8px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+        }
+        .message { 
+            padding: 12px; 
+            margin-bottom: 20px; 
+            border-radius: 4px; 
+            font-size: 0.9em; 
+            text-align: center;
+        }
+        .message.error { 
+            background-color: #fde8e8; 
+            color: #c81e1e; 
+            border: 1px solid #f8b4b4; 
+        }
+        .message.success { 
+            background-color: #defadb; 
+            color: #03543f; 
+            border: 1px solid #bcf0da; 
+        }
+        legend { 
+            font-size: 1.5rem; 
+            font-weight: bold; 
+            margin-bottom: 20px; 
+            color: #333; 
+            width: 100%;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 10px;
+        }
+        .pure-form input[type="text"], 
+        .pure-form input[type="password"] { 
+            width: 100%; 
+            padding: 12px; 
+            margin-bottom: 15px; 
+            border-radius: 4px; 
+            box-sizing: border-box; /* 防止寬度超出 */
+        }
+        .pure-button-primary { 
+            width: 100%; 
+            padding: 12px; 
+            font-size: 1rem; 
+            background-color: #007bff; 
+        }
+        .remember-me-label {
+            margin-bottom: 15px;
+            display: block;
+            font-size: 0.9em;
+            color: #666;
+        }
     </style>
 </head>
 <body>
@@ -24,49 +78,37 @@
         </div>
 
         <div th:if="${param.logout}" class="message success">
-            ✅ 您已成功登出
+            ✅ 您已成功登出系統
         </div>
 
-<!--        <form class="pure-form pure-form-stacked" method="post" action="/portfolio/login">-->
-	<form class="pure-form pure-form-stacked" method="post" th:action="@{/login}">
-
+        <form class="pure-form pure-form-stacked" method="post" th:action="@{/login}">
             <fieldset>
-                <legend>Login Form</legend>
+                <legend>Investor 系統登入</legend>
 
-                <label for="username">Username</label>
-                <input type="text" id="username" name="username" placeholder="輸入帳號" required />
+                <label for="username">帳號 (Username)</label>
+                <input type="text" id="username" name="username" placeholder="請輸入帳號" required autofocus />
 
-                <label for="password">Password</label>
-                <input type="password" id="password" name="password" placeholder="輸入密碼" required />
+                <label for="password">密碼 (Password)</label>
+                <input type="password" id="password" name="password" placeholder="請輸入密碼" required />
 
-                <!-- CSRF Token -->
-                 <input type="hidden" th:name="${_csrf.parameterName}" th:value="${_csrf.token}" /> 
-
-                <label>
-                    <input type="checkbox" name="remember-me" value="true" /> Remember me
+                <label class="remember-me-label">
+                    <input type="checkbox" name="remember-me" value="true" /> 記住我 (Remember me)
                 </label>
 
-                <p></p>
-                <button type="submit" class="pure-button pure-button-primary">Sign in</button>
+                <button type="submit" class="pure-button pure-button-primary">登入系統</button>
             </fieldset>
         </form>
 
-        <script>
-            document.querySelector('form').addEventListener('submit', function(e) {
-                console.log('表單正在提交...');
-                console.log('Action:', this.action);
-                console.log('Method:', this.method);
-
-                const formData = new FormData(this);
-                for (let [key, value] of formData.entries()) {
-                    if (key !== 'password') {
-                        console.log(key + ': ' + value);
-                    } else {
-                        console.log(key + ': [已隱藏]');
-                    }
-                }
-            });
-        </script>
+        <div style="text-align: center; margin-top: 20px;">
+            <small style="color: #999;">© 2026 Investor Management System</small>
+        </div>
     </div>
+
+    <script>
+        // 除錯用：確認表單提交狀態
+        document.querySelector('form').addEventListener('submit', function(e) {
+            console.log('正在向 ' + this.action + ' 提交身分驗證...');
+        });
+    </script>
 </body>
 </html>

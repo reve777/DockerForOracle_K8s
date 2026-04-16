@@ -10,10 +10,11 @@
 
     <script th:inline="javascript">
     /*<![CDATA[*/
+        // 取得當前登入者 ID
         var session_investor_id = /*[[${session.investor_id}]]*/ -1;
 
         $(document).ready(function () {
-            // CSRF 全域設定
+            // 1. CSRF 全域設定
             var token = $("meta[name='_csrf']").attr("content");
             var header = $("meta[name='_csrf_header']").attr("content");
             $(document).ajaxSend(function(e, xhr, options) {
@@ -24,135 +25,163 @@
 
             if (session_investor_id === -1) {
                 alert("請先登入！");
-                window.location.href = "/portfolio/login";
+                window.location.href = "/portfolio/loginpage";
                 return;
             }
 
-            // 載入圖表庫並啟動更新
-            if (typeof google !== 'undefined') {
-                google.charts.load('current', {'packages': ['corechart']});
-                google.charts.setOnLoadCallback(function() {
-                    console.log("Google Charts 已就緒");
-                    update(); 
-                });
-            } else {
-                update(); 
-            }
+            // 2. 載入 Google Charts 並啟動初始更新
+            google.charts.load('current', {'packages': ['corechart']});
+            google.charts.setOnLoadCallback(update);
 
-            // 每 60 秒刷新一次報價
+            // 3. 每 60 秒自動刷新報價與更新介面
             setInterval(refreshPrices, 60000);
+
+            // 4. 綁定按鈕事件 (委派模式)
+            $("#myTable").on("click", ".buyBtn", function() {
+                orderAction("buy", $(this).closest('td').attr('tstock_id'), $(this));
+            });
+
+            $("#myTable").on("click", ".sellBtn", function() {
+                orderAction("sell", $(this).closest('td').attr('po_id'), $(this));
+            });
         });
 
-        // 刷新報價
         function refreshPrices() {
-            fetch("/portfolio/price/refresh")
-                .then(res => {
-                    if (!res.ok) throw new Error("更新報價失敗");
-                    return res.json();
-                })
-                .then(data => {
-                    console.log("即時報價更新成功");
-                    update(); 
-                })
-                .catch(err => console.error("自動刷新報價出錯:", err));
-        }
-
-        // 更新數據
-        function update() {
-            $.get("/portfolio/investor/" + session_investor_id, function (data) {
-                $("#balance").text(numberFormat(data.balance));
-                table_list(data.portfolios);
-                // 直接將資料傳給 chart 函數進行前端計算
-                chart(data.portfolios);
+            $.get("/portfolio/price/refresh", function(res) {
+                const response = (typeof res === 'string') ? JSON.parse(res) : res;
+                if (Number(response.code) === 200) update(); 
             });
         }
 
-        // 渲染表格
+        function update() {
+            $.get("/portfolio/investor/" + session_investor_id, function (res) {
+                const response = (typeof res === 'string') ? JSON.parse(res) : res;
+                if (Number(response.code) === 200) {
+                    const investor = response.data;
+                    $("#balance").text(numberFormat(investor.balance));
+                    const list = investor.portfolios || investor.tPortfolios || investor.tportfolios || [];
+                    table_list(list);
+                    chart(list);
+                }
+            });
+        }
+
         function table_list(datas) {
-            var tbody = $("#myTable tbody");
+            const tbody = $("#myTable tbody");
             tbody.empty();
-            var asset_sum = 0;
+            let asset_sum = 0;
 
             if (!datas || datas.length === 0) {
-                tbody.append('<tr><td colspan="11" class="text-center text-muted py-4">目前尚無持股數據</td></tr>');
+                tbody.append('<tr><td colspan="11" class="text-center text-muted py-5">目前尚無持股，趕快去交易吧！</td></tr>');
                 $("#asset").text("0");
                 return;
             }
 
-            $.each(datas, function (i, item) {
-                var profit = parseInt((item.tStock.price - item.cost) * item.amount);
-                asset_sum += item.tStock.price * item.amount;
-                var profitClass = profit >= 0 ? 'text-danger' : 'text-success';
+            datas.forEach(item => {
+                const stock = item.tStock || item.tstock;
+                if (!stock) return;
 
-                var html = '<tr>' +
-                    '<td>' + item.id + '</td>' +
-                    '<td><span class="badge bg-light text-dark border">' + (item.tStock.classify ? item.tStock.classify.name : '未分類') + '</span></td>' +
-                    '<td><code class="text-primary">' + item.tStock.symbol + '</code></td>' +
-                    '<td class="fw-bold">' + item.tStock.name + '</td>' +
-                    '<td>' + numberFormat(item.tStock.price) + '</td>' +
-                    '<td>' + numberFormat(item.cost) + '</td>' +
-                    '<td>' + numberFormat(item.amount) + '</td>' +
-                    '<td class="' + profitClass + ' fw-bold">' + numberFormat(profit) + '</td>' +
-                    '<td class="small text-muted">' + item.date + '</td>' +
-                    '<td po_id="' + item.id + '"><button class="btn btn-outline-primary btn-sm sellBtn">賣出</button></td>' +
-                    '<td tstock_id="' + item.tStock.id + '"><button class="btn btn-outline-success btn-sm buyBtn">加碼</button></td>' +
-                    '</tr>';
+                const currentPrice = parseFloat(stock.price) || 0;
+                const cost = parseFloat(item.cost) || 0;
+                const amount = parseInt(item.amount) || 0;
+                const marketValue = currentPrice * amount;
+                const profit = Math.round((currentPrice - cost) * amount);
+                
+                asset_sum += marketValue;
+                const profitClass = profit >= 0 ? 'text-danger' : 'text-success';
+                const classifyObj = stock.classify || stock.tClassify || stock.tclassify;
+
+                const html = `
+                <tr>
+                    <td>${item.id}</td>
+                    <td><span class="badge bg-light text-dark border">${classifyObj ? classifyObj.name : '未分類'}</span></td>
+                    <td><code class="text-primary">${stock.symbol}</code></td>
+                    <td class="fw-bold">${stock.name}</td>
+                    <td class="text-end">${numberFormat(currentPrice)}</td>
+                    <td class="text-end">${numberFormat(cost)}</td>
+                    <td class="text-end">${numberFormat(amount)}</td>
+                    <td class="${profitClass} fw-bold text-end">${profit > 0 ? '+' : ''}${numberFormat(profit)}</td>
+                    <td class="small text-muted text-center">${item.date || '-'}</td>
+                    <td class="text-center" po_id="${item.id}">
+                        <button class="btn btn-outline-primary btn-sm sellBtn">賣出</button>
+                    </td>
+                    <td class="text-center" tstock_id="${stock.id}">
+                        <button class="btn btn-outline-success btn-sm buyBtn">加碼</button>
+                    </td>
+                </tr>`;
                 tbody.append(html);
             });
             $("#asset").text(numberFormat(asset_sum));
         }
 
-        // 圖表邏輯：改由前端計算，避免後端 SQL 錯誤
-        function chart(portfolios) {
-            if (typeof google === 'undefined' || !google.visualization || !portfolios || portfolios.length === 0) {
+        function orderAction(type, id, btn) {
+            const amount = prompt(`請輸入${type === 'buy' ? '買進' : '賣出'}股數 (1000股為單位)？`, "1000");
+            if (!amount) return; 
+            const qty = parseInt(amount);
+            if (qty % 1000 !== 0 || isNaN(qty) || qty <= 0) {
+                alert('請輸入1000的倍數');
                 return;
             }
 
-            // 1. 資產配置比例 (Pie Chart)
-            var assetMap = {};
-            portfolios.forEach(function(item) {
-                var catName = item.tStock.classify ? item.tStock.classify.name : '未分類';
-                var marketValue = item.tStock.price * item.amount;
-                assetMap[catName] = (assetMap[catName] || 0) + marketValue;
-            });
+            btn.prop('disabled', true); // 防止連點
+            const url = `/portfolio/order/${type}/${id}/${qty}`;
+            
+            $.get(url, function(res) {
+                const response = (typeof res === 'string') ? JSON.parse(res) : res;
+                if (Number(response.code) === 200) {
+                    alert('交易成功！');
+                    update(); 
+                } else {
+                    alert('交易失敗: ' + response.message);
+                }
+            }).always(() => btn.prop('disabled', false));
+        }
 
-            var assetDataArr = [ ['Category', 'Value'] ];
-            for (var key in assetMap) {
-                assetDataArr.push([key, assetMap[key]]);
+        function chart(portfolios) {
+            if (!google.visualization || !portfolios || portfolios.length === 0) {
+                $("#piechart_asset, #barchart_profit").html('<div class="text-center text-muted pt-5">暫無圖表數據</div>');
+                return;
             }
-            drawAssetChart(assetDataArr);
 
-            // 2. 個股損益狀態 (Bar Chart)
-            var profitDataArr = [ ['Stock', 'Profit'] ];
-            portfolios.forEach(function(item) {
-                var profit = (item.tStock.price - item.cost) * item.amount;
-                profitDataArr.push([item.tStock.name, profit]);
+            const assetMap = {};
+            const profitDataArr = [ [ 'Stock', 'Profit', { role: 'style' } ] ];
+
+            portfolios.forEach(item => {
+                const stock = item.tStock || item.tstock;
+                if(!stock) return;
+
+                const classifyObj = stock.classify || stock.tClassify || stock.tclassify;
+                const catName = classifyObj ? classifyObj.name : '未分類';
+                const price = parseFloat(stock.price) || 0;
+                const cost = parseFloat(item.cost) || 0;
+                const amount = parseInt(item.amount) || 0;
+                
+                // 資產配置計算
+                assetMap[catName] = (assetMap[catName] || 0) + (price * amount);
+                
+                // 損益計算
+                const profit = (price - cost) * amount;
+                profitDataArr.push([stock.name, profit, profit >= 0 ? '#dc3545' : '#198754']);
             });
-            drawProfitChart(profitDataArr);
-        }
 
-        function drawAssetChart(dataArr) {
-            var chartdata = google.visualization.arrayToDataTable(dataArr);
-            var options = { 
-                title: '資產配置比例 (依分類)', 
-                pieHole: 0.4, 
-                chartArea: {width: '90%', height: '80%'} 
-            };
-            new google.visualization.PieChart(document.getElementById('piechart_asset')).draw(chartdata, options);
-        }
+            // 繪製資產配置圖
+            const assetDataArr = [ [ 'Category', 'Value' ] ];
+            for (let key in assetMap) assetDataArr.push([key, assetMap[key]]);
+            
+            new google.visualization.PieChart(document.getElementById('piechart_asset')).draw(
+                google.visualization.arrayToDataTable(assetDataArr), 
+                { title: '資產配置比例 (按類別)', pieHole: 0.4, chartArea: { width: '90%', height: '80%' } }
+            );
 
-        function drawProfitChart(dataArr) {
-            var chartdata = google.visualization.arrayToDataTable(dataArr);
-            var options = { 
-                title: '個股損益狀態 (金額)', 
-                legend: { position: 'none' }, 
-                chartArea: {width: '80%', height: '80%'} 
-            };
-            new google.visualization.BarChart(document.getElementById('barchart_profit')).draw(chartdata, options);
+            // 繪製損益圖
+            new google.visualization.BarChart(document.getElementById('barchart_profit')).draw(
+                google.visualization.arrayToDataTable(profitDataArr), 
+                { title: '個股累計損益', legend: { position: 'none' }, chartArea: { width: '70%', height: '80%' } }
+            );
         }
 
         function numberFormat(n) {
-            return n.toLocaleString('zh-TW');
+            return n != null ? Math.round(n).toLocaleString('zh-TW') : '0';
         }
     /*]]>*/
     </script>
@@ -166,35 +195,40 @@
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm bg-primary text-white">
                     <div class="card-body p-4">
-                        <h6 class="text-white-50 uppercase fw-bold">總資產市值 (Asset)</h6>
-                        <h1 class="display-5 fw-bold mb-0">$<span id="asset">0</span></h1>
+                        <h6 class="text-white-50 text-uppercase fw-bold small">總資產市值 (TWD)</h6>
+                        <h1 class="display-6 fw-bold mb-0">$<span id="asset">0</span></h1>
                     </div>
                 </div>
             </div>
             <div class="col-md-6">
                 <div class="card border-0 shadow-sm bg-dark text-white">
                     <div class="card-body p-4">
-                        <h6 class="text-white-50 uppercase fw-bold">可用餘額 (Balance)</h6>
-                        <h1 class="display-5 fw-bold mb-0">$<span id="balance">0</span></h1>
+                        <h6 class="text-white-50 text-uppercase fw-bold small">帳戶可用餘額</h6>
+                        <h1 class="display-6 fw-bold mb-0">$<span id="balance">0</span></h1>
                     </div>
                 </div>
             </div>
         </div>
 
         <div class="card border-0 shadow-sm mb-5">
-            <div class="card-header bg-white py-3">
-                <h5 class="card-title mb-0 fw-bold"><i class="bi bi-list-stars me-2 text-primary"></i>我的投資組合</h5>
+            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0 fw-bold"><i class="bi bi-briefcase me-2"></i>我的投資組合</h5>
+                <button onclick="update()" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-arrow-clockwise"></i> 手動刷新
+                </button>
             </div>
             <div class="table-responsive">
                 <table id="myTable" class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
-                            <th>ID</th><th>分類</th><th>代號</th><th>名稱</th><th>現價</th>
-                            <th>成本</th><th>股數</th><th>未實現損益</th><th>日期</th>
-                            <th class="text-center">賣出</th><th class="text-center">加碼</th>
+                            <th>ID</th><th>分類</th><th>代號</th><th>名稱</th><th class="text-end">現價</th>
+                            <th class="text-end">成本</th><th class="text-end">股數</th><th class="text-end">損益</th>
+                            <th class="text-center">更新日期</th><th class="text-center">操作</th><th class="text-center">加碼</th>
                         </tr>
                     </thead>
-                    <tbody></tbody>
+                    <tbody>
+                        <tr><td colspan="11" class="text-center py-4">資料載入中...</td></tr>
+                    </tbody>
                 </table>
             </div>
         </div>
@@ -202,12 +236,12 @@
         <div class="row g-4">
             <div class="col-lg-6">
                 <div class="card border-0 shadow-sm p-3">
-                    <div id="piechart_asset" style="width:100%; height:350px;"></div>
+                    <div id="piechart_asset" style="height:350px;"></div>
                 </div>
             </div>
             <div class="col-lg-6">
                 <div class="card border-0 shadow-sm p-3">
-                    <div id="barchart_profit" style="width:100%; height:350px;"></div>
+                    <div id="barchart_profit" style="height:350px;"></div>
                 </div>
             </div>
         </div>

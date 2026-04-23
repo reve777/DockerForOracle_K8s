@@ -2,41 +2,39 @@ package com.portfolio.entity;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.EqualsAndHashCode;
-import lombok.NoArgsConstructor;
-import lombok.ToString;
+import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "watch")
-@Data
+@Getter
+@Setter
 @NoArgsConstructor
-@EqualsAndHashCode(onlyExplicitlyIncluded = true)
+@AllArgsConstructor
+@ToString(exclude = {"investor", "tStocks"})
+@EqualsAndHashCode(of = "id")
 public class Watch {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @EqualsAndHashCode.Include
     private Integer id;
 
     @Column
     private String name;
 
-    @ManyToOne
-    @JoinColumn(name = "investor_id", referencedColumnName = "id")
-    // 保留顯示 investor，但剛才我們在 Investor 類別已經把它的 watchs 給 @JsonIgnore 了
-    @ToString.Exclude
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "investor_id")
+    @JsonIgnoreProperties({"watches", "portfolios"}) // 💡 防止抓回投資人的其他關聯
     private Investor investor;
 
-    @ManyToMany(cascade = CascadeType.PERSIST, fetch = FetchType.EAGER)
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
     @JoinTable(
         name = "watch_tstock",
         joinColumns = @JoinColumn(name = "watch_id"),
         inverseJoinColumns = @JoinColumn(name = "t_stock_id")
     )
-    // 這裡不用改，因為 TStock 端已經 @JsonIgnore 了 watchs
+    @JsonIgnoreProperties("watches") // 💡 進入 TStock 後，禁止再抓回 watches 列表
     private Set<TStock> tStocks = new LinkedHashSet<>();
 
     public Watch(String name, Investor investor) {
@@ -44,13 +42,11 @@ public class Watch {
         this.investor = investor;
     }
 
-    public Set<TStock> addtStock(TStock tStock) {
-        tStocks.add(tStock);
-        return tStocks;
+    public void addTStock(TStock tStock) {
+        this.tStocks.add(tStock);
     }
 
-    public Set<TStock> removetStock(TStock tStock) {
-        tStocks.remove(tStock);
-        return tStocks;
+    public void removeTStock(TStock tStock) {
+        this.tStocks.remove(tStock);
     }
 }

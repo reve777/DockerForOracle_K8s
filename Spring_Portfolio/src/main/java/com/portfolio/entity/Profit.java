@@ -4,6 +4,10 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
 
 import org.hibernate.annotations.Immutable;
 import org.hibernate.annotations.Subselect;
@@ -14,15 +18,13 @@ import org.hibernate.annotations.Subselect;
 		+ "FROM Classify c, Portfolio p, TStock s "
 		+ "WHERE p.t_stock_id = s.id AND s.classify_id = c.id "
 		+ "GROUP BY p.investor_id, c.name")
-@Data
-public class Profit {// 進賺
-	@Id
-
-	private Integer id;
-	@Column
-	private Integer invid;
-	@Column
-	private String name;
-	@Column
-	private Double subtotal;
+@Getter
+@Setter
+@EqualsAndHashCode(of = "id")
+public class Profit {
+    @Id
+    private Integer id;
+    private Integer invid;
+    private String name;
+    private Double subtotal;
 }

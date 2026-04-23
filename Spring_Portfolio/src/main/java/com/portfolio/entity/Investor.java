@@ -2,15 +2,17 @@ package com.portfolio.entity;
 
 import java.util.Set;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.ToString;
-import lombok.EqualsAndHashCode;
-import com.fasterxml.jackson.annotation.JsonIgnore;
+import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "investor")
-@Data
+@Getter
+@Setter
+@ToString(exclude = {"watches", "portfolios"})
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(of = "id")
 public class Investor {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -27,14 +29,10 @@ public class Investor {
 
     @OneToMany(mappedBy = "investor", fetch = FetchType.LAZY)
     @OrderBy("id ASC")
-    @JsonIgnore 
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude // 💡 避免循環計算 hashCode
-    private Set<Watch> watchs;
+    @JsonIgnoreProperties("investor") // 💡 確保轉 JSON 時不會回頭抓 investor
+    private Set<Watch> watches;
 
-    @OneToMany(mappedBy = "investor", fetch = FetchType.EAGER) // 💡 必須為 EAGER
-    @JsonIgnoreProperties("investor") 
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude // 💡 關鍵：Set 必須排除此欄位的雜湊計算
+    @OneToMany(mappedBy = "investor", fetch = FetchType.EAGER)
+    @JsonIgnoreProperties("investor") // 💡 確保轉 JSON 時不會回頭抓 investor
     private Set<Portfolio> portfolios; 
 }

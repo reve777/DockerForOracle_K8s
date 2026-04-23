@@ -1,32 +1,30 @@
 package com.portfolio.entity;
 
 import java.util.Set;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.OneToMany;
-import jakarta.persistence.Table;
-import lombok.Data;
-
+import jakarta.persistence.*;
+import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
-//商品分類表
 @Entity
-@Table
-@Data
+@Table(name = "classify")
+@Getter
+@Setter
+@ToString(exclude = "tStocks")
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(of = "id") // 關鍵：避免計算 hashCode 時觸發集合
 public class Classify {
-	@Id
-	@GeneratedValue(strategy = GenerationType.IDENTITY)
-	private Integer id;
-	@Column
-	private String name;// 分類名稱
-	@Column
-	private Boolean tx;// 該商品是否支援交易(transaction)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Integer id;
 
-	@OneToMany(mappedBy = "classify")
-	@JsonIgnoreProperties("classify")
-	private Set<TStock> tStocks;
+    @Column
+    private String name;
+
+    @Column
+    private Boolean tx;
+
+    @OneToMany(mappedBy = "classify")
+    @JsonIgnoreProperties("classify")
+    private Set<TStock> tStocks;
 }

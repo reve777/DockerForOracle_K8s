@@ -34,11 +34,11 @@ public class MyLoginSuccessHandler implements AuthenticationSuccessHandler {
         session.setMaxInactiveInterval(30 * 60); // 30 分鐘
 
         // 使用 FETCH JOIN 方法一次撈出相關資料
-        investorRepository.findByUsernameWithWatchs(username).ifPresentOrElse(investor -> {
+        investorRepository.findByUsernameWithWatches(username).ifPresentOrElse(investor -> {
             session.setAttribute("investor_id", investor.getId());
 
-            if (investor.getWatchs() != null && !investor.getWatchs().isEmpty()) {
-                session.setAttribute("watch_id", investor.getWatchs().iterator().next().getId());
+            if (investor.getWatches() != null && !investor.getWatches().isEmpty()) {
+                session.setAttribute("watch_id", investor.getWatches().iterator().next().getId());
                 System.out.println("Watch ID 已設置: " + session.getAttribute("watch_id"));
             }
 

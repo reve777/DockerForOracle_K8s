@@ -10,13 +10,20 @@ import java.util.Optional;
 @Repository
 public interface InvestorRepository extends JpaRepository<Investor, Integer> {
 
-	// 💡 修正重點：使用 JOIN FETCH 一次撈出 investor 與 watchs
-	@Query("SELECT i FROM Investor i LEFT JOIN FETCH i.watchs WHERE i.username = :username")
-	Optional<Investor> findByUsernameWithWatchs(@Param("username") String username);
+	/**
+	 * 💡 修正重點 1：JPQL 路徑改為 i.watches (對齊 Entity 欄位名)
+	 * 💡 修正重點 2：方法名稱改為 findByUsernameWithWatches (對齊各處呼叫端)
+	 */
+	@Query("SELECT i FROM Investor i LEFT JOIN FETCH i.watches WHERE i.username = :username")
+	Optional<Investor> findByUsernameWithWatches(@Param("username") String username);
 
-	// 使用 JOIN FETCH 強制載入關聯資料，避免 LazyInitializationException
-	@Query("SELECT i FROM Investor i LEFT JOIN FETCH i.watchs WHERE i.id = :id")
-	Optional<Investor> findByIdWithWatchs(@Param("id") Integer id);
+	/**
+	 * 💡 修正重點 1：JPQL 路徑改為 i.watches
+	 * 💡 修正重點 2：方法名稱改為 findByIdWithWatches
+	 */
+	@Query("SELECT i FROM Investor i LEFT JOIN FETCH i.watches WHERE i.id = :id")
+	Optional<Investor> findByIdWithWatches(@Param("id") Integer id);
 
+	// 一般查詢（不帶關聯資料）
 	Optional<Investor> findByUsername(String username);
 }

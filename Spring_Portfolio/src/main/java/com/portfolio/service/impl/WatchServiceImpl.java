@@ -59,7 +59,7 @@ public class WatchServiceImpl implements WatchService {
         TStock ts = tStockRepository.findById(tstockId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "TStock not found"));
 
-        watch.addtStock(ts);
+        watch.addTStock(ts);
         watchRepository.saveAndFlush(watch);
 
         return getById(watchId); // 確保 tStocks 已初始化
@@ -73,7 +73,7 @@ public class WatchServiceImpl implements WatchService {
         TStock ts = tStockRepository.findById(tstockId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "TStock not found"));
 
-        watch.removetStock(ts);
+        watch.removeTStock(ts);
         watchRepository.saveAndFlush(watch);
 
         return getById(watchId); // 確保 tStocks 已初始化

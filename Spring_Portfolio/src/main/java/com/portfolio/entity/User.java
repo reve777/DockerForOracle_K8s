@@ -1,35 +1,30 @@
 package com.portfolio.entity;
 
-import java.util.Date;
-
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-
-import jakarta.persistence.Column;
-import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
-import lombok.Data;
+import jakarta.persistence.*;
+import lombok.*;
 
 @Entity
 @Table(name = "\"user\"")
-@Data
+@Getter
+@Setter
+@ToString(exclude = "password") // 安全起見排除密碼印出
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(of = "id")
 public class User {
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private int id;
 
-	@Id
-	@GeneratedValue(strategy = GenerationType.AUTO)
-	private int id;
+    @Column(name = "user_name", nullable = false)
+    private String userName;
 
-	@Column(name = "user_name", nullable = false) // 對應資料庫欄位 user_name
-	private String userName;
+    @Column(name = "password")
+    private String password;
 
-	@Column(name = "password") // 對應資料庫欄位 password
-	private String password;
+    @Column(name = "active")
+    private boolean active;
 
-	@Column(name = "active")
-	private boolean active;
-
-	@Column(name = "roles")
-	private String roles;
+    @Column(name = "roles")
+    private String roles;
 }

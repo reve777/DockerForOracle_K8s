@@ -16,74 +16,70 @@ import com.portfolio.service.InvestorService;
 @Service
 public class InvestorServiceImpl implements InvestorService {
 
-	private final InvestorRepository investorRepository;
-	private final WatchRepository watchRepository;
+    private final InvestorRepository investorRepository;
+    private final WatchRepository watchRepository;
 
-	public InvestorServiceImpl(InvestorRepository investorRepository, WatchRepository watchRepository) {
-		this.investorRepository = investorRepository;
-		this.watchRepository = watchRepository;
-	}
-
-	@Override
-	public List<Investor> getAll() {
-		return investorRepository.findAll();
-	}
-
-	@Override
-	@Transactional(readOnly = true) // 💡 確保在同一個 Session 內完成關聯抓取
-    public Investor getById(Integer id) {
-        return investorRepository.findById(id).orElse(null);
+    public InvestorServiceImpl(InvestorRepository investorRepository, WatchRepository watchRepository) {
+        this.investorRepository = investorRepository;
+        this.watchRepository = watchRepository;
     }
 
-	@Override
-	@Transactional
-	public Investor add(Map<String, String> map) {
-		Investor investor = new Investor();
-		investor.setUsername(map.get("username"));
-		investor.setEmail(map.get("email"));
-		// 將 Integer 改為 Long
-		investor.setBalance(Long.parseLong(map.get("balance")));
-		// 存檔 Investor
-		investorRepository.save(investor);
+    @Override
+    public List<Investor> getAll() {
+        return investorRepository.findAll();
+    }
 
-		// 自動建立 Watch
-		String watchName = investor.getUsername() + "的投資組合";
-		Watch watch = new Watch();
-		watch.setName(watchName);
-		watch.setInvestor(investor); // 建立關聯
-		watchRepository.save(watch);
+    @Override
+    @Transactional(readOnly = true)
+    public Investor getById(Integer id) {
+        // 💡 修正：直接使用帶有 FETCH JOIN 的方法，防止 LazyInitializationException
+        return investorRepository.findByIdWithWatches(id).orElse(null);
+    }
 
-		return investor;
-	}
+    @Override
+    @Transactional
+    public Investor add(Map<String, String> map) {
+        Investor investor = new Investor();
+        investor.setUsername(map.get("username"));
+        investor.setEmail(map.get("email"));
+        investor.setBalance(Long.parseLong(map.get("balance")));
+        investorRepository.save(investor);
 
-	@Override
-	@Transactional
-	public Investor update(Integer id, Map<String, String> map) {
-		Investor investor = getById(id);
-		if (investor == null)
-			return null;
+        // 自動建立 Watch
+        String watchName = investor.getUsername() + "的投資組合";
+        Watch watch = new Watch();
+        watch.setName(watchName);
+        watch.setInvestor(investor); 
+        watchRepository.save(watch);
 
-		investor.setUsername(map.get("username"));
-		investor.setEmail(map.get("email"));
-		investor.setBalance(Long.parseLong(map.get("balance")));
+        return investor;
+    }
 
-		return investorRepository.saveAndFlush(investor);
-	}
+    @Override
+    @Transactional
+    public Investor update(Integer id, Map<String, String> map) {
+        Investor investor = getById(id);
+        if (investor == null) return null;
 
-	@Override
-	@Transactional
-	public Boolean delete(Integer id) {
-		Investor investor = getById(id);
-		if (investor == null)
-			return false;
+        investor.setUsername(map.get("username"));
+        investor.setEmail(map.get("email"));
+        investor.setBalance(Long.parseLong(map.get("balance")));
 
-		investorRepository.deleteById(id);
-		return true;
-	}
+        return investorRepository.saveAndFlush(investor);
+    }
 
-	@Override
-	public Investor findByIdWithWatchs(Integer id) {
-		Optional<Investor> opt = investorRepository.findByIdWithWatchs(id);
-		return opt.orElse(null);
-	}
+    @Override
+    @Transactional
+    public Boolean delete(Integer id) {
+        if (!investorRepository.existsById(id)) return false;
+        investorRepository.deleteById(id);
+        return true;
+    }
+
+    @Override
+    public Investor findByIdWithWatchs(Integer id) {
+        // 💡 修正：呼叫端更名為 findByIdWithWatches (配合之前的 Repository 修正)
+        Optional<Investor> opt = investorRepository.findByIdWithWatches(id);
+        return opt.orElse(null);
+    }
 }

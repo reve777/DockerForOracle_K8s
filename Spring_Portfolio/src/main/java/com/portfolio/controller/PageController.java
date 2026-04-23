@@ -50,8 +50,8 @@ public class PageController {
 				session.setAttribute("investor_username", inv.getUsername());
 
 				// 補齊 watch_id 確保頁面功能正常
-				if (inv.getWatchs() != null && !inv.getWatchs().isEmpty()) {
-					session.setAttribute("watch_id", inv.getWatchs().iterator().next().getId());
+				if (inv.getWatches() != null && !inv.getWatches().isEmpty()) {
+					session.setAttribute("watch_id", inv.getWatches().iterator().next().getId());
 				}
 			}
 		}

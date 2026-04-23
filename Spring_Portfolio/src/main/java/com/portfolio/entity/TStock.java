@@ -1,54 +1,59 @@
 package com.portfolio.entity;
 
+import jakarta.persistence.*;
+import lombok.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import java.math.BigDecimal;
 import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.Set;
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import jakarta.persistence.*;
-import lombok.Data;
 
 @Entity
 @Table(name = "tstock")
-@Data
+@Getter
+@Setter
+@ToString(exclude = {"classify", "watches"}) 
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(of = "id")
 public class TStock {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
 
-    @Column(nullable = false)
+    @Column
     private String name;
 
-    @Column(nullable = false)
+    @Column(unique = true)
     private String symbol;
 
-    @Column
+    @Column(precision = 10, scale = 2)
+    private BigDecimal price;
+
+    @Column(name = "change_price", precision = 10, scale = 2)
+    private BigDecimal changePrice;
+
+    @Column(name = "change_in_percent", precision = 10, scale = 2)
+    private BigDecimal changeInPercent;
+
+    @Column(name = "pre_closed", precision = 10, scale = 2)
     private BigDecimal preClosed;
 
     @Column
-    private BigDecimal price;
+    private Long volumn; 
 
-    @Column
-    private BigDecimal changePrice;
-
-    @Column
-    private BigDecimal changeInPercent;
-
-    @Column
-    private Long volumn;
-
-    @Column
+    @Column(name = "transaction_date")
     @Temporal(TemporalType.TIMESTAMP)
     private Date transactionDate;
 
-    @ManyToOne
-    @JoinColumn(name = "classify_id", referencedColumnName = "id")
-    @JsonIgnoreProperties("tStocks") // 這裡通常 Classify 也要加 Ignore
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "classify_id")
+    @JsonIgnoreProperties("tStocks") 
     private Classify classify;
 
     @ManyToMany(mappedBy = "tStocks")
-    @JsonIgnore // 💡 終極方案：徹底切斷
-    private Set<Watch> watchs = new LinkedHashSet<>();
+    @JsonIgnore // 💡 徹底切斷反向路徑，這能保證 Jackson 絕對不會繞回 Watch
+    private Set<Watch> watches = new LinkedHashSet<>();
 }

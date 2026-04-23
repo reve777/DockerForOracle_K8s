@@ -31,12 +31,13 @@ public class GlobalSessionAdvice {
 
         String username = principal.getName();
         try {
-            investorRepository.findByUsernameWithWatchs(username).ifPresent(investor -> {
+            // 💡 修正重點：方法名稱改為 findByUsernameWithWatches (對齊 Repository)
+            investorRepository.findByUsernameWithWatches(username).ifPresent(investor -> {
                 session.setAttribute("investor_id", investor.getId());
                 session.setAttribute("investor_username", investor.getUsername());
 
-                // 安全取得第一個 Watch ID（避免 null 或空集合）
-                Optional.ofNullable(investor.getWatchs())
+                // 💡 修正重點：getWatchs() 改為 getWatches() (對齊 Entity)
+                Optional.ofNullable(investor.getWatches())
                         .filter(w -> !w.isEmpty())
                         .map(w -> w.iterator().next().getId())
                         .ifPresent(watchId -> session.setAttribute("watch_id", watchId));
@@ -44,7 +45,6 @@ public class GlobalSessionAdvice {
                 log.info("[GlobalSessionAdvice] Session 補填完成，使用者: {}", username);
             });
         } catch (Exception e) {
-            // Session 補填失敗不應中斷請求流程，僅記錄警告
             log.warn("[GlobalSessionAdvice] Session 補填失敗，使用者: {}，原因: {}", username, e.getMessage(), e);
         }
     }

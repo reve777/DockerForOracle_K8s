@@ -2,14 +2,17 @@ package com.portfolio.entity;
 
 import java.util.Date;
 import jakarta.persistence.*;
-import lombok.Data;
-import lombok.ToString;
-import lombok.EqualsAndHashCode;
+import lombok.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 @Entity
 @Table(name = "portfolio")
-@Data
+@Getter
+@Setter
+@ToString(exclude = {"investor", "tStock"})
+@NoArgsConstructor
+@AllArgsConstructor
+@EqualsAndHashCode(of = "id")
 public class Portfolio {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -25,14 +28,12 @@ public class Portfolio {
     @Temporal(TemporalType.TIMESTAMP)
     private Date date = new Date();
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investor_id")
     @JsonIgnoreProperties("portfolios")
-    @ToString.Exclude
-    @EqualsAndHashCode.Exclude // 💡 避免與 Investor 產生循環雜湊
     private Investor investor;
 
-    @ManyToOne
-    @JoinColumn(name = "t_stock_id") // 💡 務必對齊資料庫有底線的欄位
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "t_stock_id")
     private TStock tStock;
 }

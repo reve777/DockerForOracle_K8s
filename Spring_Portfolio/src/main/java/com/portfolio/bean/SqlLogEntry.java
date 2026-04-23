@@ -40,35 +40,27 @@ public class SqlLogEntry {
 				Pattern.compile("SELECT\\b.*?\\bFROM\\s+([\\w_\\.]+)", Pattern.CASE_INSENSITIVE | Pattern.DOTALL));
 
 		// 初始化表名映射
-		// 信託機構
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_BANK_MST, EntityConstants.ENTITY_BANK_MST);
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_BANK_TEMP, EntityConstants.ENTITY_BANK_TEMP);
 
-		// 機構簽發憑證
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_CERTIFICATE_MST, EntityConstants.ENTITY_CERTIFICATE_MST);
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_CERTIFICATE_TEMP, EntityConstants.ENTITY_CERTIFICATE_TEMP);
 
-		// JWE 金鑰
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_JWE_KEY_MST, EntityConstants.ENTITY_JWE_KEY_MST);
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_JWE_KEY_TEMP, EntityConstants.ENTITY_JWE_KEY_TEMP);
 
-		// 通知群組
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_NOTIFY_GROUP, EntityConstants.ENTITY_NOTIFY_GROUP);
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_NOTIFY_GROUP_TEMP, EntityConstants.ENTITY_NOTIFY_GROUP_TEMP);
 
-		// 通知人員
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_NOTIFY_MEMBER, EntityConstants.ENTITY_NOTIFY_MEMBER);
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_NOTIFY_MEMBER_TEMP, EntityConstants.ENTITY_NOTIFY_MEMBER_TEMP);
 
-		// 收單機構
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_ACQUIRER_MST, EntityConstants.ENTITY_ACQUIRER_MST);
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_ACQUIRER_TEMP, EntityConstants.ENTITY_ACQUIRER_TEMP);
 
-		// License
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_LICENSE_MST, EntityConstants.ENTITY_LICENSE_MST);
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_LICENSE_TEMP, EntityConstants.ENTITY_LICENSE_TEMP);
 
-		// 系統監控
 		TABLE_TO_ENTITY_MAP.put(EntityConstants.TABLE_TXN_STATUS, EntityConstants.ENTITY_TXN_STATUS);
 	}
 
@@ -131,10 +123,8 @@ public class SqlLogEntry {
 
 	@Override
 	public String toString() {
-		return String.format("SQL=%s, TYPE=%s, ENTITY=%s",
-				sql.length() > 50 ? sql.substring(0, 50) + "..." : sql,
-				getSqlType(),
-				targetEntity != null ? targetEntity : "N/A");
+		return String.format("SQL=%s, TYPE=%s, ENTITY=%s", sql.length() > 50 ? sql.substring(0, 50) + "..." : sql,
+				getSqlType(), targetEntity != null ? targetEntity : "N/A");
 	}
 
 }

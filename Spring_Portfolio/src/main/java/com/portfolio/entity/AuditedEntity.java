@@ -25,7 +25,7 @@ import lombok.experimental.SuperBuilder;
 @AllArgsConstructor
 public class AuditedEntity {
 
-//    @NcccSqlImage(order = 80)
+//    @IvanSqlImage(order = 80)
 //    @Column(name = "MODIFY_USER", length = 20, nullable = false)
 //    public String modifyUser;
 
@@ -34,7 +34,7 @@ public class AuditedEntity {
     public LocalDateTime modifyDate;
 
     /*
-     此方法透過反射機制，讀取被 @NcccSqlImage 註解標記的欄位，
+     此方法透過反射機制，讀取被 @IvanSqlImage 註解標記的欄位，
      按照 order 屬性的順序，將這些欄位的值組合成一個逗號分隔的字串。
      * */
     public String toSqlImage() throws IllegalAccessException {
@@ -56,7 +56,7 @@ public class AuditedEntity {
     }
 
     /*
-     此私有方法負責收集所有被 @NcccSqlImage 註解標記的欄位，
+     此私有方法負責收集所有被 @IvanSqlImage 註解標記的欄位，
      並根據 order 屬性進行排序，最終返回一個排序後的欄位值映射。
      * */
     private Map<Integer, String> getAllSqlImageAspectAnnotationSortedFields() throws IllegalAccessException {

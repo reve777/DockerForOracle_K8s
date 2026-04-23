@@ -26,7 +26,7 @@ public class SystemConstants {
   								PERMISSION_DEPT_ID = "user_deptid",
   								PERMISSION_DEPT_NAME = "user_deptname",
   								PERMISSION_TEL_NUMBER = "user_telNumber",
-  		  						PERMISSION_SYSTEM_ID = "NCCC_AP039",
+  		  						PERMISSION_SYSTEM_ID = "Ivan_AP039",
   								SYSTEM_ID_STR = "AP039";
 
     // 分頁參數
@@ -53,7 +53,7 @@ public class SystemConstants {
                               	TITLE_LADY = "F"; // 小姐
 
     // License生成參數
-    public static final String 	SALT_PARAM = "NcccTdep", // 加鹽參數
+    public static final String 	SALT_PARAM = "IvanTdep", // 加鹽參數
                               	AES_MODE_CBC = "AES/CBC/PKCS5Padding"; // AES_CBC演算法
 
     // 異動類型

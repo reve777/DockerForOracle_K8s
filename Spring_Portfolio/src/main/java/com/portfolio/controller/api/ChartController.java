@@ -8,7 +8,9 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.portfolio.aspect.RequiresPermission;
 import com.portfolio.entity.Asset;
+import com.portfolio.eunms.PermissionEnum;
 import com.portfolio.service.ChartService;
 
 @RestController
@@ -19,10 +21,11 @@ public class ChartController {
 	private ChartService chartService;
 
 	@GetMapping("/asset/{invid}")
+	@RequiresPermission(PermissionEnum.QUERY)
 	public List<Asset> asset(@PathVariable("invid") Integer invid) {
 		return chartService.getAssetsByInvid(invid);
 	}
-
+	@RequiresPermission(PermissionEnum.QUERY)
 	@GetMapping("/profit/{invid}")
 	public List<?> profit(@PathVariable("invid") Integer invid) {
 		return chartService.getProfitsByInvid(invid);

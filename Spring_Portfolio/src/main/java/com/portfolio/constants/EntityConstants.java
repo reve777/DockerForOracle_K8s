@@ -12,7 +12,7 @@ public class EntityConstants {
     public static final String TABLE_LOG_MASTER = "LOG_MASTER";
     public static final String TABLE_LOG_DETAIL = "LOG_DETAIL";
 
-    // 信託機構相關
+    // 機構相關
     public static final String TABLE_BANK_MST = "BANK_MST";
     public static final String TABLE_BANK_TEMP = "BANK_TEMP";
 
@@ -46,7 +46,7 @@ public class EntityConstants {
     /**
      * 實體名稱
      */
-    // 信託機構相關
+    // 機構相關
     public static final String ENTITY_BANK_MST = "BankMst";
     public static final String ENTITY_BANK_TEMP = "BankTemp";
 
@@ -89,8 +89,8 @@ public class EntityConstants {
      * TABLE欄位
      */
     public static final String 	TABLE_COLUMN_BANK_ID = "bankId",
-    							TABLE_COLUMN_BANK_CODE = "bankCode", // 信託機構代碼
-    							TABLE_COLUMN_BANK_NAME = "bankName", // 信託機構名稱
+    							TABLE_COLUMN_BANK_CODE = "bankCode", // 機構代碼
+    							TABLE_COLUMN_BANK_NAME = "bankName", // 機構名稱
     	    					TABLE_COLUMN_PARTITION_MODE = "partitionMode", // 參加模式
     	    					TABLE_COLUMN_CONN_MTHD = "connMthd", // 連線方式
     	    					TABLE_COLUMN_JWE_ENABLE = "jweEnable", // JWE啟用
@@ -102,7 +102,7 @@ public class EntityConstants {
     	    					TABLE_COLUMN_CONFIRM_USER = "confirmUser", // 覆核人員
     							TABLE_COLUMN_GROUP_ID = "groupId", // 群組ID
     							TABLE_COLUMN_MEM_ID = "memId", // 人員ID
-    							TABLE_COLUMN_ACQ_ID = "acqId", // 信託機構平台識別碼
+    							TABLE_COLUMN_ACQ_ID = "acqId", // 機構平台識別碼
     	    					TABLE_COLUMN_ACQ_CODE = "acqCode", // 收單機構代碼
     							TABLE_COLUMN_ACQ_NAME = "acqName", // 收單機構名稱
     							TABLE_COLUMN_LICENSE_ID = "licenseId", // 平台識別值
@@ -133,10 +133,10 @@ public class EntityConstants {
     	 						TABLE_COLUMN_MERCHANT_ID_LENGTH = 15;
 
     // 正規化規則
-    public static final String 	BANK_CODE_FORMAT = "^[A-Za-z0-9_-]+$", 	// 信託機構代碼格式
+    public static final String 	BANK_CODE_FORMAT = "^[A-Za-z0-9_-]+$", 	// 機構代碼格式
     							ACQUIRER_CODE_FORMAT = "^[A-Za-z0-9_-]+$", 	// 收單機構代碼格式
     							KEY_REF_FORMAT = "^[A-Za-z0-9_]+$", 	// JWE金鑰識別碼格式: 英文數字及(_)
-    							// 通用EMAIL格式, 收單機構/信託機構/群組人員
+    							// 通用EMAIL格式, 收單機構/機構/群組人員
     							COMMON_EMAIL_FORMAT = "^$|^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$";
     
     

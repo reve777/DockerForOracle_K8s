@@ -45,6 +45,7 @@ public class PermissionAspect {
     	PermissionBean permissionBean = (PermissionBean) request.getAttribute(SystemConstants.PERMISSION_BEAN);
 
     	// 檢查是否取得了 permissionBean，或是權限不足
+    	System.out.println(hasPermission(permissionBean, requiresPermission.value()));
     	if (permissionBean == null || !hasPermission(permissionBean, requiresPermission.value())) {
     	    throw new UnauthorizedException(MessageConstants.NO_PERMISSION_ERROR_MSG);
     	}

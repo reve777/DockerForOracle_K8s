@@ -16,7 +16,7 @@ public enum FunctionEnum {
 
 	REMINDER("001", ModuleConstants.FUNC_REMINDER),
 
-	TDEPLOG("002", ModuleConstants.FUNC_B);
+	B("002", ModuleConstants.FUNC_B);
 
 
 	private static final String URL_PREFIX = "/portfolio/";

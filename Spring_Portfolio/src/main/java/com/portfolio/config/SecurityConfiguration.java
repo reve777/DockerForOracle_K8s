@@ -42,7 +42,9 @@ public class SecurityConfiguration {
         http
             // 💡 第一步：排除綠界路徑的 CSRF 檢查
             .csrf(csrf -> csrf
-                .ignoringRequestMatchers("/ecpay/**", "/pay-result") 
+                // 忽略 ECPay、支付結果與 license 產生相關路徑的 CSRF 檢查，
+                // 因為 /portfolio/license/generate 可能會由外部系統或非瀏覽器客戶端呼叫
+                .ignoringRequestMatchers("/ecpay/**", "/pay-result", "/license/**") 
             )
 
             .authorizeHttpRequests(auth -> auth
@@ -54,7 +56,8 @@ public class SecurityConfiguration {
                     "/post/**", 
                     "/error", 
                     "/loginpage",
-                    "/ecpay/**",      
+                    "/ecpay/**", 
+                    "/license/**", 
                     "/pay-result"     
 //                    "/portfolio/classify/import" 
                 ).permitAll()

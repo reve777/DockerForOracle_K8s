@@ -53,7 +53,7 @@ public class SystemConstants {
                               	TITLE_LADY = "F"; // 小姐
 
     // License生成參數
-    public static final String 	SALT_PARAM = "IvanTdep", // 加鹽參數
+    public static final String 	SALT_PARAM = "IvanSalt", // 加鹽參數
                               	AES_MODE_CBC = "AES/CBC/PKCS5Padding"; // AES_CBC演算法
 
     // 異動類型

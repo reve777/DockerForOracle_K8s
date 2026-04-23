@@ -96,4 +96,14 @@ public class PageController {
 		addSessionToModel(session, model);
 		return "classifyExcel";
 	}
+
+	/**
+	 * JWE 建立頁面 - 統一由 PageController 處理路由
+	 * 對外路徑: /page/jwekey/new
+	 */
+	@RequestMapping("/jwekey/new")
+	public String getJweKeyCreatePage(HttpSession session, Model model) {
+		addSessionToModel(session, model);
+		return "jwe/JweKeyCreate"; // src/main/resources/templates/jwe/JweKeyCreate.html
+	}
 }

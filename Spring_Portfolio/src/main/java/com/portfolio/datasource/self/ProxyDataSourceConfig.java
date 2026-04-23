@@ -43,7 +43,7 @@ public class ProxyDataSourceConfig {
 
 	private final Environment env;
 
-	@Value("${spring.datasource.jndi-name:java:comp/env/jdbc/tdep_ds}")
+	@Value("${spring.datasource.jndi-name:java:comp/env/jdbc/ivan_ds}")
 	private String jndiName;
 
 	@Primary

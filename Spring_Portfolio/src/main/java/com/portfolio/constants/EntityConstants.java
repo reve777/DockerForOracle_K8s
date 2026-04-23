@@ -76,7 +76,8 @@ public class EntityConstants {
 	public static final String ENTITY_NOTIFY_MEMBER_TEMP = "NotifyMemberTemp";
 
     // 交易日誌
-	public static final String ENTITY_TDEP_TXN_LOG = "TdepTxnLog";
+    // renamed to remove legacy project name
+    public static final String ENTITY_TXN_LOG = "TxnLog";
 
     // 系統監控_TXN主機狀態
 	public static final String ENTITY_TXN_STATUS = "TxnStatus";

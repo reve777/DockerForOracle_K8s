@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{./include/header :: headerContent}"></th:block>
+    <style>
+        pre { background:#f5f5f5; border:1px solid #ddd; padding:12px; white-space:pre-wrap; min-height:120px; font-size: 0.85rem; }
+        .btn-hidden { display: none; }
+    </style>
+</head>
+<body class="bg-light">
+    <th:block th:replace="~{./include/navbar :: navbar}"></th:block>
+
+    <div class="container mt-5 pb-5">
+        <div class="card shadow-sm border-0">
+            <div class="card-header bg-white py-3">
+                <h2 class="h4 mb-0">建立 JWE 金鑰 (SELF / ORG)</h2>
+            </div>
+            <div class="card-body">
+                <form id="jweForm">
+                    <div class="mb-3">
+                        <label class="form-label d-block fw-bold">金鑰模式</label>
+                        <div class="form-check form-check-inline">
+                            <input type="radio" name="keyType" id="typeSlf" value="SLF" checked class="form-check-input"/>
+                            <label class="form-check-label" for="typeSlf">SLF (系統自動產生)</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input type="radio" name="keyType" id="typeOgn" value="OGN" class="form-check-input"/>
+                            <label class="form-check-label" for="typeOgn">OGN (需上傳公鑰)</label>
+                        </div>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Bank ID</label>
+                            <input type="text" name="bankId" class="form-control" placeholder="例如: 822"/>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold">Key Reference</label>
+                            <input type="text" name="keyRef" class="form-control" placeholder="選填"/>
+                        </div>
+                    </div>
+
+                    <div id="pemRow" class="mb-3" style="display: none;">
+                        <label class="form-label fw-bold">上傳公鑰 (.pem)</label>
+                        <div class="input-group">
+                            <input type="file" name="file" class="form-control" accept=".pem"/>
+                            <button class="btn btn-outline-secondary" type="button" id="uploadDefaultBtn">使用預設檔</button>
+                        </div>
+                        <small class="text-muted">若不選擇檔案，系統將自動套用預設測試金鑰。</small>
+                    </div>
+
+                    <input type="hidden" id="licenseTxt"/>
+
+                    <div class="mt-4">
+                        <button type="button" id="submitBtn" class="btn btn-primary px-4">建立</button>
+                        <button type="button" id="clearBtn" class="btn btn-secondary px-4">清除</button>
+                        <button type="button" id="printBtn" class="btn btn-info text-white btn-hidden">列印結果</button>
+                        <button type="button" id="downloadJweBtn" class="btn btn-success btn-hidden">下載 JWE</button>
+                        <button type="button" id="downloadLicBtn" class="btn btn-dark btn-hidden">下載 License</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="row mt-4">
+            <div class="col-md-6">
+                <label class="fw-bold text-primary">Public Key (PEM)</label>
+                <pre id="pubPem"></pre>
+            </div>
+            <div class="col-md-6">
+                <label class="fw-bold text-danger">Private Key</label>
+                <pre id="priPem"></pre>
+            </div>
+            <div class="col-12 mt-3">
+                <label class="fw-bold">執行結果 (JSON)</label>
+                <pre id="resultPre"></pre>
+            </div>
+        </div>
+    </div>
+
+    <script th:src="@{/js/jweCreate.js}"></script>
+</body>
+</html>

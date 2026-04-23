@@ -18,7 +18,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class LDAPAuthorizationInterceptor implements HandlerInterceptor {
 
-	// URI 必須包含4個字串才能檢查權限 (含空字串), 如: /tdep_portal/bank/main
+	// URI 必須包含4個字串才能檢查權限 (含空字串), 如: /portfolio/home/page
 	public static final int MIN_URI_SEGMENTS_FOR_PERMISSION_CHECK = 4;
 
 	/**

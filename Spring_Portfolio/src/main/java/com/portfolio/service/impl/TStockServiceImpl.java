@@ -26,11 +26,13 @@ public class TStockServiceImpl implements TStockService {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<TStock> getAll() {
         return tStockRepository.findAll();
     }
 
     @Override
+    @Transactional(readOnly = true)
     public TStock getById(Integer id) {
         return tStockRepository.findById(id).orElse(null);
     }
@@ -38,7 +40,6 @@ public class TStockServiceImpl implements TStockService {
     @Override
     @Transactional
     public TStock add(Map<String, String> map) {
-        // 1. 驗證分類是否存在
         Optional<Classify> optClassify = classifyRepository.findById(Integer.parseInt(map.get("classify_id")));
         if (!optClassify.isPresent()) {
             return null;
@@ -49,12 +50,9 @@ public class TStockServiceImpl implements TStockService {
         ts.setSymbol(map.get("symbol"));
         ts.setClassify(optClassify.get());
 
-        // 2. 處理價格 (從 String 轉 BigDecimal)
-        // 預防前端傳入空值，給予預設值 0
         String priceStr = map.getOrDefault("price", "0");
         ts.setPrice(new BigDecimal(priceStr));
 
-        // 3. 初始化其他報價欄位 (避免報價程式跑之前為 null)
         ts.setChangePrice(BigDecimal.ZERO);
         ts.setChangeInPercent(BigDecimal.ZERO);
         ts.setPreClosed(BigDecimal.ZERO);
@@ -66,7 +64,6 @@ public class TStockServiceImpl implements TStockService {
     @Override
     @Transactional
     public TStock update(Integer id, Map<String, String> map) {
-        // 1. 驗證分類與股票是否存在
         Optional<Classify> optClassify = classifyRepository.findById(Integer.parseInt(map.get("classify_id")));
         Optional<TStock> optTStock = tStockRepository.findById(id);
         
@@ -79,7 +76,6 @@ public class TStockServiceImpl implements TStockService {
         tStock.setSymbol(map.get("symbol"));
         tStock.setClassify(optClassify.get());
 
-        // 2. 更新價格
         if (map.containsKey("price")) {
             tStock.setPrice(new BigDecimal(map.get("price")));
         }
@@ -93,8 +89,6 @@ public class TStockServiceImpl implements TStockService {
         if (!tStockRepository.existsById(id)) {
             return false;
         }
-        // 注意：如果這檔股票已經在某些人的 WatchList 裡面，直接刪除可能會觸發外鍵約束錯誤
-        // 建議在實際開發中確認資料庫有無設定 Cascade
         tStockRepository.deleteById(id);
         return true;
     }

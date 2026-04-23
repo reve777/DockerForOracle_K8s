@@ -25,16 +25,18 @@ public class Watch {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "investor_id")
-    @JsonIgnoreProperties({"watches", "portfolios"}) // 💡 防止抓回投資人的其他關聯
+    // 💡 當從 Watch 查 Investor 時，不要再抓 Investor 下的 watches 造成遞迴
+    @JsonIgnoreProperties({"watches", "portfolios"}) 
     private Investor investor;
 
-    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.EAGER)
+    @ManyToMany(cascade = {CascadeType.PERSIST, CascadeType.MERGE}, fetch = FetchType.LAZY) // 改為 LAZY
     @JoinTable(
         name = "watch_tstock",
         joinColumns = @JoinColumn(name = "watch_id"),
         inverseJoinColumns = @JoinColumn(name = "t_stock_id")
     )
-    @JsonIgnoreProperties("watches") // 💡 進入 TStock 後，禁止再抓回 watches 列表
+    // 💡 進入 TStock 後，禁止再抓回 watches
+    @JsonIgnoreProperties("watches") 
     private Set<TStock> tStocks = new LinkedHashSet<>();
 
     public Watch(String name, Investor investor) {

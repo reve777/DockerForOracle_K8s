@@ -3,7 +3,6 @@ package com.portfolio.service.impl;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -28,23 +27,28 @@ public class WatchServiceImpl implements WatchService {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public Watch getById(Integer id) {
         Watch watch = watchRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Watch not found"));
-        // 初始化 tStocks 避免 null
-        if (watch.getTStocks() == null) {
+        
+        // 💡 關鍵：顯式呼叫 size() 觸發 Lazy Load 初始化，防止序列化異常
+        if (watch.getTStocks() != null) {
+            watch.getTStocks().size(); 
+        } else {
             watch.setTStocks(new HashSet<>());
         }
         return watch;
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public List<Watch> getAll() {
         List<Watch> list = watchRepository.findAll();
         list.forEach(w -> {
-            if (w.getTStocks() == null) {
+            if (w.getTStocks() != null) {
+                w.getTStocks().size(); // 初始化集合
+            } else {
                 w.setTStocks(new HashSet<>());
             }
         });
@@ -62,7 +66,7 @@ public class WatchServiceImpl implements WatchService {
         watch.addTStock(ts);
         watchRepository.saveAndFlush(watch);
 
-        return getById(watchId); // 確保 tStocks 已初始化
+        return this.getById(watchId); // 使用 getById 以確保返回物件已初始化
     }
 
     @Override
@@ -76,7 +80,7 @@ public class WatchServiceImpl implements WatchService {
         watch.removeTStock(ts);
         watchRepository.saveAndFlush(watch);
 
-        return getById(watchId); // 確保 tStocks 已初始化
+        return this.getById(watchId);
     }
 
     @Override

@@ -5,7 +5,6 @@ import java.math.RoundingMode;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.List;
-import java.util.TimeZone;
 import java.util.ArrayList;
 import java.util.Calendar;
 
@@ -69,7 +68,6 @@ public class PriceServiceImpl implements PriceService {
 
     @Override
     public List<HistoricalQuote> getHistoricalQuotes(String symbol) {
-        // Yahoo Finance 目前對台股 API 較不穩定，如果是 0050 等台股請確保代號後綴正確 (如 0050.TW)
         if (symbol.contains(".TW") || symbol.contains(".tw")) {
             return fetchTaiwanStockHistory(symbol.toUpperCase());
         } else {

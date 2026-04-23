@@ -29,10 +29,12 @@ public class Investor {
 
     @OneToMany(mappedBy = "investor", fetch = FetchType.LAZY)
     @OrderBy("id ASC")
-    @JsonIgnoreProperties("investor") // 💡 確保轉 JSON 時不會回頭抓 investor
+    // 💡 防止序列化時：Investor -> Watch -> Investor 的循環
+    @JsonIgnoreProperties("investor") 
     private Set<Watch> watches;
 
-    @OneToMany(mappedBy = "investor", fetch = FetchType.EAGER)
-    @JsonIgnoreProperties("investor") // 💡 確保轉 JSON 時不會回頭抓 investor
+    @OneToMany(mappedBy = "investor", fetch = FetchType.LAZY)
+    // 💡 防止序列化時：Investor -> Portfolio -> Investor 的循環
+    @JsonIgnoreProperties("investor")
     private Set<Portfolio> portfolios; 
 }

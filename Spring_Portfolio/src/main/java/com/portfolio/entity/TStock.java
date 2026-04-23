@@ -48,12 +48,12 @@ public class TStock {
     @Temporal(TemporalType.TIMESTAMP)
     private Date transactionDate;
 
-    @ManyToOne(fetch = FetchType.EAGER)
+    @ManyToOne(fetch = FetchType.LAZY) // 改為 LAZY
     @JoinColumn(name = "classify_id")
     @JsonIgnoreProperties("tStocks") 
     private Classify classify;
 
-    @ManyToMany(mappedBy = "tStocks")
-    @JsonIgnore // 💡 徹底切斷反向路徑，這能保證 Jackson 絕對不會繞回 Watch
+    @ManyToMany(mappedBy = "tStocks", fetch = FetchType.LAZY) // 改為 LAZY
+    @JsonIgnore // 💡 股票通常不需要反向查有哪些觀測清單，直接 Ignore 斷開最安全
     private Set<Watch> watches = new LinkedHashSet<>();
 }

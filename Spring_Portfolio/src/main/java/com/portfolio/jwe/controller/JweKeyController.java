@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +21,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/jwekey")
 public class JweKeyController {
+    private static final Logger log = LoggerFactory.getLogger(JweKeyController.class);
 
     private final JweKeyService jweKeyService;
     private final ResourceLoader resourceLoader; // 💡 用來讀取靜態資源
@@ -37,13 +40,19 @@ public class JweKeyController {
             @RequestPart(value = "file", required = false) MultipartFile file
     ) {
         try {
+            if (file != null) {
+                log.info("接收到檔案上傳: fileName={}, size={}", file.getOriginalFilename(), file.getSize());
+            }
+
             // 💡 邏輯判斷：如果是 OGN 且沒傳檔案，自動抓取 resources/static/sample/default_pub.pem
             if ("OGN".equalsIgnoreCase(keyType) && (file == null || file.isEmpty())) {
                 Resource resource = resourceLoader.getResource("classpath:static/sample/default_pub.pem");
                 if (resource.exists()) {
                     byte[] fileContent = StreamUtils.copyToByteArray(resource.getInputStream());
                     file = new CustomMultipartFile(fileContent, "default_pub.pem");
-                    System.out.println("偵測到 OGN 模式且無檔案，已自動加載預設 PEM");
+                    log.info("偵測到 OGN 模式且無檔案，已自動加載預設 PEM");
+                } else {
+                    throw new RuntimeException("OGN 模式缺少預設 PEM 檔案: static/sample/default_pub.pem");
                 }
             }
 
@@ -63,7 +72,7 @@ public class JweKeyController {
             return ResponseEntity.ok(map);
 
         } catch (Exception ex) {
-            ex.printStackTrace();
+            log.error("建立 JweKey 失敗, keyType: {}", keyType, ex);
             Map<String, Object> err = new HashMap<>();
             err.put("status", "ERROR");
             err.put("message", "建立失敗: " + ex.getMessage());

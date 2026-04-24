@@ -13,9 +13,9 @@ import lombok.extern.log4j.Log4j2;
 public final class LogUtils {
 
 	// 日誌前綴
-	private static final String STR_OP = "[操作] ";
-	private static final String STR_SYS = "[系統] ";
-	private static final String STR_BIZ_WARN = "[業務] ";
+	private static final String STR_OP = "[使用] ";
+	private static final String STR_SYS = "[SYSTEM] ";
+	private static final String STR_BIZ_WARN = "[業務邏輯] ";
 	private static final String STR_SYS_ERR = "[錯誤] ";
 
 	// 防止實例化

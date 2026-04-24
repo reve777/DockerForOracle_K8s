@@ -1,0 +1,56 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Current File",
+            "request": "launch",
+            "mainClass": "${file}"
+        },
+        {
+            "type": "java",
+            "name": "RedisObjectApplication",
+            "request": "launch",
+            "mainClass": "com.portfolio.RedisObjectApplication",
+            "projectName": "sts_portfolio"
+        },
+        {
+            "type": "java",
+            "name": "StsPortfolioApplication",
+            "request": "launch",
+            "mainClass": "com.portfolio.StsPortfolioApplication",
+            "projectName": "sts_portfolio"
+        },
+        {
+            "type": "java",
+            "name": "StsPortfolioApplicationTests",
+            "request": "launch",
+            "mainClass": "com.portfolio.StsPortfolioApplicationTests",
+            "projectName": "sts_portfolio"
+        },
+        {
+            "type": "java",
+            "name": "RedisExample",
+            "request": "launch",
+            "mainClass": "com.portfolio.example.RedisExample",
+            "projectName": "sts_portfolio"
+        },
+        {
+            "type": "java",
+            "name": "EasyExcelDemo",
+            "request": "launch",
+            "mainClass": "com.portfolio.service.file.EasyExcelDemo",
+            "projectName": "sts_portfolio"
+        },
+        {
+            "type": "java",
+            "name": "ExcelImporter",
+            "request": "launch",
+            "mainClass": "com.portfolio.service.file.ExcelImporter",
+            "projectName": "sts_portfolio"
+        }
+    ]
+}

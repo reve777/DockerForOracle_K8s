@@ -106,4 +106,10 @@ public class PageController {
 		addSessionToModel(session, model);
 		return "jwe/JweKeyCreate"; // src/main/resources/templates/jwe/JweKeyCreate.html
 	}
+
+	@RequestMapping("/bank")
+	public String getBankPage(HttpSession session, Model model) {
+		addSessionToModel(session, model);
+		return "bank"; // src/main/resources/templates/jwe/JweKeyCreate.html
+	}
 }

@@ -68,19 +68,36 @@ public class JweKeyServiceImpl implements JweKeyService {
             String sanitized = sanitizeBase64(rawContent);
 
             try {
-                // 3. 解碼 (使用 MimeDecoder 增加對不規則換行的容忍度)
-                byte[] keyBytes = Base64.getMimeDecoder().decode(sanitized);
-                
-                KeyFactory kf = KeyFactory.getInstance(ALG_RSA);
-                X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
-                PublicKey publicKey = kf.generatePublic(keySpec);
+                // 3. 解碼
+                byte[] keyBytes = Base64.getDecoder().decode(sanitized);
 
-                // 4. 驗證長度
+                // 4. 解析金鑰 (嘗試 RSA，若失敗則檢查是否為 EC)
+                PublicKey publicKey;
+                X509EncodedKeySpec keySpec = new X509EncodedKeySpec(keyBytes);
+                
+                try {
+                    KeyFactory kf = KeyFactory.getInstance(ALG_RSA);
+                    publicKey = kf.generatePublic(keySpec);
+                } catch (Exception rsaEx) {
+                    // 💡 診斷：如果是因為上傳了 EC 金鑰導致 RSA 解析失敗
+                    try {
+                        KeyFactory ecKf = KeyFactory.getInstance("EC");
+                        ecKf.generatePublic(keySpec);
+                        throw new IllegalArgumentException("解析失敗：偵測到此檔案為 EC (橢圓曲線) 金鑰，但系統設定僅支援 RSA 4096。");
+                    } catch (IllegalArgumentException ie) {
+                        throw ie;
+                    } catch (Exception ecEx) {
+                        // 若連 EC 都不是，則拋出原始 RSA 錯誤
+                        throw rsaEx;
+                    }
+                }
+
+                // 5. 驗證長度
                 if (!(publicKey instanceof RSAPublicKey rsaKey) || rsaKey.getModulus().bitLength() != RSA_KEY_SIZE) {
                     throw new IllegalArgumentException("The RSA key size must be " + RSA_KEY_SIZE + " bits.");
                 }
 
-                // 5. 轉回標準 Base64 字串
+                // 6. 轉回標準 Base64 字串
                 String finalPubBase64 = Base64.getEncoder().encodeToString(publicKey.getEncoded());
                 resp.setPubKeyBase64(finalPubBase64);
                 resp.setKeyRef(StringUtils.defaultIfBlank(request.getKeyRef(), generateKeyRef(finalPubBase64)));
@@ -94,25 +111,12 @@ public class JweKeyServiceImpl implements JweKeyService {
     }
 
     /**
-     * 終極清洗：只保留 Base64 字典字元，並自動處理長度問題
+     * 清洗 PEM：移除標籤與所有空白/換行
      */
     private String sanitizeBase64(String raw) {
         if (raw == null) return "";
-        
-        // 移除 PEM 標籤行
-        String noTags = raw.replaceAll("-+[^-]+-+", "");
-        
-        // 移除所有非 Base64 字元 (只保留 A-Z, a-z, 0-9, +, /)
-        // 注意：先不保留 '='，因為後面會根據長度統一補齊
-        String pureBase64 = noTags.replaceAll("[^A-Za-z0-9+/]", "");
-        
-        // 自動補齊 '=' Padding，確保長度是 4 的倍數
-        int mod = pureBase64.length() % 4;
-        if (mod > 0) {
-            pureBase64 += "====".substring(mod);
-        }
-        
-        return pureBase64;
+        return raw.replaceAll("-+[^-]+-+", "") // 移除 -----BEGIN...-----
+                  .replaceAll("\\s", "");       // 移除所有換行、空格、Tab
     }
 
     private KeyPair generateRSAKeyPair() throws Exception {

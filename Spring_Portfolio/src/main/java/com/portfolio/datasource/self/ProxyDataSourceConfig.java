@@ -33,7 +33,7 @@ import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
  */
 @Configuration
 @EnableJpaRepositories(
-		basePackages = "com.portfolio.repository",
+		basePackages = {"com.portfolio.repository","com.portfolio.bank.repository"},
 		entityManagerFactoryRef = "proxyEntityManager",
 		transactionManagerRef = "proxyTransactionManager"
 )
@@ -95,7 +95,7 @@ public class ProxyDataSourceConfig {
 	public LocalContainerEntityManagerFactoryBean proxyEntityManager() {
 		LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
 		em.setDataSource(proxyDataSource());
-		em.setPackagesToScan(DataSourceConstraints.SELF_ENTITIES_PACKAGE);
+		em.setPackagesToScan(DataSourceConstraints.SELF_ENTITIES_PACKAGE,DataSourceConstraints.SELF_ENTITIES_BANK_PACKAGE);
 
 		HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
 		em.setJpaVendorAdapter(vendorAdapter);

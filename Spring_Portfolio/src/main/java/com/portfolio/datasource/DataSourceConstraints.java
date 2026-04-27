@@ -8,4 +8,6 @@ public interface DataSourceConstraints {
 
     String PROXY_DATA_SOURCE_NAME = "proxyDataSource";
     String SELF_ENTITIES_PACKAGE = "com.portfolio.entity";
+    
+    String SELF_ENTITIES_BANK_PACKAGE = "com.portfolio.bank.entity";
 }

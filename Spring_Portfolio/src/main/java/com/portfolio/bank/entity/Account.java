@@ -1,31 +1,38 @@
 package com.portfolio.bank.entity;
 
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 import java.math.BigDecimal;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
 
-// 帳戶模型
+@Entity
+@Table(name = "ACCOUNTS")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Account {
-    private String accountId;
-    private BigDecimal balance;
-    // 每個帳戶獨立的鎖，用於高併發控制
-    private final Lock lock = new ReentrantLock();
-
-    public Account(String accountId, BigDecimal balance) {
-        this.accountId = accountId;
-        this.balance = balance;
-    }
-
-    public String getAccountId() { return accountId; }
-    public BigDecimal getBalance() { return balance; }
     
+    @Id
+    @Column(name = "ACCOUNT_ID") // 明確對應 SQL 中的 ACCOUNT_ID
+    private String accountId;
+    
+    @Column(name = "BALANCE")    // 明確對應 SQL 中的 BALANCE
+    private BigDecimal balance;
+
+    @Version
+    @Column(name = "VERSION")    // 明確對應 SQL 中的 VERSION
+    private Long version;
+
     public void addBalance(BigDecimal amount) {
         this.balance = this.balance.add(amount);
     }
-    
+
     public void subtractBalance(BigDecimal amount) {
         this.balance = this.balance.subtract(amount);
     }
-
-    public Lock getLock() { return lock; }
 }

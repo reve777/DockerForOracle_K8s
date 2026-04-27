@@ -141,4 +141,43 @@ public class GlobalExceptionHandler {
         log.error("[GlobalExceptionHandler] 嚴重系統錯誤 (Throwable) [url={}]", request.getRequestURI(), ex);
         return ApiResponse.error("500", "系統底層發生嚴重錯誤，請檢查伺服器日誌");
     }
+    
+    
+ // ─────────────────────────────────────────────
+    // 業務層例外 (新增 IllegalStateException)
+    // ─────────────────────────────────────────────
+
+    /**
+     * 處理業務邏輯狀態錯誤（如：餘額不足）
+     */
+    @ExceptionHandler(IllegalStateException.class)
+    @ResponseStatus(HttpStatus.CONFLICT) // 或者用 BAD_REQUEST (400)
+    @ResponseBody
+    public ApiResponse handleIllegalState(IllegalStateException ex) {
+        log.warn("[GlobalExceptionHandler] 業務邏輯衝突: {}", ex.getMessage());
+        // 這樣前端就能看到 "餘額不足"
+        return ApiResponse.error("409", ex.getMessage()); 
+    }
+
+    // ─────────────────────────────────────────────
+    // 資料庫併發例外 (新增 PessimisticLockingFailureException)
+    // ─────────────────────────────────────────────
+
+    /**
+     * 捕捉悲觀鎖/死鎖失敗 (當 @Retryable 次數用盡時會進到這裡)
+     */
+    /**
+     * 捕捉悲觀鎖、死鎖、鎖取得超時失敗
+     */
+    @ExceptionHandler({
+        org.springframework.dao.PessimisticLockingFailureException.class,
+        org.springframework.dao.CannotAcquireLockException.class,
+        org.springframework.dao.QueryTimeoutException.class // 鎖等待超時
+    })
+    @ResponseStatus(HttpStatus.SERVICE_UNAVAILABLE)
+    @ResponseBody
+    public ApiResponse handleLockingFailure(Exception ex) {
+        log.error("[GlobalExceptionHandler] 併發存取失敗 (重試已耗盡): {}", ex.getMessage());
+        return ApiResponse.error("503", "系統繁忙（併發競爭過大），請稍候再試");
+    }
 }

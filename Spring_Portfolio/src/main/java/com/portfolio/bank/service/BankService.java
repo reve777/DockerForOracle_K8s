@@ -1,70 +1,55 @@
 package com.portfolio.bank.service;
 
-import org.springframework.stereotype.Service;
-
 import com.portfolio.bank.entity.Account;
-
-import jakarta.annotation.PostConstruct;
+import com.portfolio.bank.repository.AccountRepository;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
 @Service
+@RequiredArgsConstructor
 public class BankService {
-    // 模擬資料庫，使用 ConcurrentHashMap 支援高併發存取
-    private final Map<String, Account> accountDB = new ConcurrentHashMap<>();
 
-    @PostConstruct
-    public void initAccounts() {
-        // 初始化兩個測試帳戶，各有一萬塊
-        accountDB.put("A001", new Account("A001", new BigDecimal("10000.00")));
-        accountDB.put("A002", new Account("A002", new BigDecimal("10000.00")));
-    }
+    private final AccountRepository accountRepository;
 
     public Account getAccount(String accountId) {
-        return accountDB.get(accountId);
+        return accountRepository.findById(accountId).orElse(null);
     }
 
-    /**
-     * 高併發轉帳核心邏輯
-     */
+    @Transactional
     public boolean transfer(String fromId, String toId, BigDecimal amount) {
         if (fromId.equals(toId)) throw new IllegalArgumentException("不能轉帳給自己");
-        if (amount.compareTo(BigDecimal.ZERO) <= 0) throw new IllegalArgumentException("轉帳金額必須大於 0");
+        
+        // --- 關鍵：決定鎖定順序 ---
+        String firstId = fromId.compareTo(toId) < 0 ? fromId : toId;
+        String secondId = fromId.compareTo(toId) < 0 ? toId : fromId;
 
-        Account fromAccount = accountDB.get(fromId);
-        Account toAccount = accountDB.get(toId);
+        // 1. 依照順序鎖定，避免循環等待 (Deadlock)
+        Account firstAccount = accountRepository.findByIdForUpdate(firstId)
+                .orElseThrow(() -> new IllegalArgumentException("帳戶不存在: " + firstId));
+        
+        Account secondAccount = accountRepository.findByIdForUpdate(secondId)
+                .orElseThrow(() -> new IllegalArgumentException("帳戶不存在: " + secondId));
 
-        if (fromAccount == null || toAccount == null) {
-            throw new IllegalArgumentException("帳戶不存在");
+        // 2. 找出誰是來源、誰是目的（因為順序可能被我們調換了）
+        Account fromAccount = fromId.equals(firstAccount.getAccountId()) ? firstAccount : secondAccount;
+        Account toAccount = toId.equals(firstAccount.getAccountId()) ? firstAccount : secondAccount;
+
+        // 3. 檢查餘額
+        if (fromAccount.getBalance().compareTo(amount) < 0) {
+            throw new IllegalStateException("餘額不足");
         }
 
-        // 【高併發死鎖預防機制】
-        // 永遠先鎖定 ID 字典序較小的帳戶。這保證了即使發生 A轉B 與 B轉A 的併發情況，
-        // 兩個執行緒也會以相同的順序取得鎖，完美避免 Deadlock。
-        Account firstLock = fromId.compareTo(toId) < 0 ? fromAccount : toAccount;
-        Account secondLock = fromId.compareTo(toId) < 0 ? toAccount : fromAccount;
+        // 4. 執行金額異動
+        fromAccount.subtractBalance(amount);
+        toAccount.addBalance(amount);
 
-        firstLock.getLock().lock();
-        try {
-            secondLock.getLock().lock();
-            try {
-                // 再次檢查餘額是否充足 (在鎖定狀態下檢查，確保資料一致性)
-                if (fromAccount.getBalance().compareTo(amount) < 0) {
-                    throw new IllegalStateException("餘額不足");
-                }
-                
-                // 執行扣款與入帳
-                fromAccount.subtractBalance(amount);
-                toAccount.addBalance(amount);
-                
-                return true;
-            } finally {
-                secondLock.getLock().unlock();
-            }
-        } finally {
-            firstLock.getLock().unlock();
-        }
+        // JPA 會在事務結束時自動 flush，或者手動呼叫 save
+        accountRepository.save(fromAccount);
+        accountRepository.save(toAccount);
+
+        return true;
     }
 }

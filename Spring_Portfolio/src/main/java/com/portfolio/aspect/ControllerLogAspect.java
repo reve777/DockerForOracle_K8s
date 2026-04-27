@@ -56,8 +56,14 @@ public class ControllerLogAspect {
         } catch (Exception e) {
             // 計算執行時間
             long executionTime = System.currentTimeMillis() - startTime;
-            // 記錄異常日誌
-            LogUtils.error(String.format("%s 執行失敗 (耗時: %d ms)", fullMethodName, executionTime), e);
+            // 如果異常是鎖衝突，這可能是重試中的一次，可以記錄為 WARN 而非 ERROR
+            if (e instanceof org.springframework.dao.PessimisticLockingFailureException) {
+                LogUtils.bizWarn(String.format("%s 偵測到鎖競爭，準備重試 (耗時: %d ms)", fullMethodName, executionTime));
+            } else {
+                // 真正的業務失敗或系統崩潰
+                LogUtils.error(String.format("%s 執行失敗，原因: %s (耗時: %d ms)", 
+                              fullMethodName, e.getMessage(), executionTime), e);
+            }
             throw e;
         }
     }

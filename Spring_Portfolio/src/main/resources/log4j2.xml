@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration monitorInterval="3600">
+    <!-- Properties Definition -->
+    <Properties>
+        <!-- File Pattern: 包含 MDC 變數的詳細格式 -->
+        <property name="LOG_PATTERN"
+    		value="%date{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{0} -%notEmpty{[id=%X{userId}, name=%X{userName}]} %msg%n"/>
+        <!-- Console Pattern: LogUtils 會補充額外資訊 -->
+        <property name="CONSOLE_PATTERN" value="%d{yyyy-MM-dd'T'HH:mm:ss,SSS} %-5level [%t] %C{} : %msg%n"/>
+        <!-- Log File Storage Path -->
+        <property name="FILE_PATH" value="C:/Users/nccc_02/Desktop/mylog"/>
+        <!-- System Properties with Default Values -->
+        <property name="ROOT_LOG_LEVEL" value="${sys:logging.level.root:-INFO}"/>
+        <property name="HIBERNATE_LOG_LEVEL" value="${sys:logging.level.org.hibernate.SQL:-error}"/>
+    </Properties>
+
+    <!-- Appenders Configuration -->
+    <appenders>
+        <!-- Console Appender: 輸出到控制台 -->
+        <Console name="Console" target="SYSTEM_OUT">
+            <PatternLayout pattern="${CONSOLE_PATTERN}" />
+        </Console>
+
+        <!-- Log File: 記錄 INFO 及以上等級的日誌，按日切割 -->
+        <RollingFile name="RollingFileAll" fileName="${FILE_PATH}/Mydemo.log"
+                     filePattern="${FILE_PATH}/mylog_%d{yyyyMMdd}.log">
+            <PatternLayout pattern="${LOG_PATTERN}"/>
+            <Policies>
+                <TimeBasedTriggeringPolicy interval="1"/>
+            </Policies>
+			<!-- 保留 90 天的日誌檔案 -->
+			<DefaultRolloverStrategy>
+				<Delete basePath="${FILE_PATH}" maxDepth="1">
+					<IfFileName glob="mylog_*.log"/>
+					<IfLastModified age="90d"/>
+				</Delete>
+			</DefaultRolloverStrategy>
+        </RollingFile>
+
+    </appenders>
+
+    <!-- Loggers Configuration -->
+    <loggers>
+        <!-- Root Logger: 預設日誌處理器，所有未明確指定的 logger 都會使用此設定 -->
+        <root level="${ROOT_LOG_LEVEL}">
+            <appender-ref ref="Console"/>
+            <appender-ref ref="RollingFileAll"/>
+        </root>
+
+        <!-- Hibernate SQL Logger: 控制 SQL 語句的日誌輸出等級 -->
+        <logger name="org.hibernate.SQL" level="${HIBERNATE_LOG_LEVEL}" additivity="false">
+            <appender-ref ref="Console"/>
+            <appender-ref ref="RollingFileAll"/>
+        </logger>
+
+        <!-- Spring Data JPA Query Logger: 避免大量 JPA 內部查詢日誌干擾業務日誌，如需調試可改為 DEBUG -->
+        <logger name="org.springframework.data.jpa.repository.query" level="WARN" additivity="false">
+            <appender-ref ref="Console"/>
+            <appender-ref ref="RollingFileAll"/>
+        </logger>
+
+        <!-- Spring ORM JPA Logger: 避免大量 EntityManager 生命週期日誌，如需調試可改為 DEBUG -->
+        <logger name="org.springframework.orm.jpa" level="WARN" additivity="false">
+            <appender-ref ref="Console"/>
+            <appender-ref ref="RollingFileAll"/>
+        </logger>
+
+        <!-- HikariCP Connection Pool Logger: 避免大量連接取得/歸還日誌，如需調試可改為 DEBUG -->
+        <logger name="com.zaxxer.hikari" level="WARN" additivity="false">
+            <appender-ref ref="Console"/>
+            <appender-ref ref="RollingFileAll"/>
+        </logger>
+
+        <!-- JMX RMI Logger: 過濾 RMI 通訊內部錯誤，這些通常不影響業務功能 -->
+        <logger name="sun.rmi" level="ERROR" additivity="false">
+            <appender-ref ref="Console"/>
+        </logger>
+
+        <!-- JMX Management Logger: 過濾 JMX Bean 註冊/管理的內部警告 -->
+        <logger name="javax.management" level="ERROR" additivity="false">
+            <appender-ref ref="Console"/>
+        </logger>
+
+        <!-- Sun Logging Utility: 過濾 JDK 內部日誌工具的警告信息 -->
+        <logger name="sun.util.logging" level="ERROR" additivity="false">
+            <appender-ref ref="Console"/>
+        </logger>
+    </loggers>
+</configuration>

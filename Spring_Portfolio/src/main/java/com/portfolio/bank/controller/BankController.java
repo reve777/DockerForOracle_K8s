@@ -7,8 +7,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.util.HashMap;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/bank")
@@ -16,22 +14,23 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class BankController {
 
-    private final BankService bankService;
+	private final BankService bankService;
 
-    // 優化前：public ApiResponse<BigDecimal> ... return ApiResponse.success(balance);
-    // 優化後：直接回傳 BigDecimal，Advice 會幫你包成 {"code":200, "data": 100.0}
-    @GetMapping("/balance/{accountId}")
-    public BigDecimal getBalance(@PathVariable String accountId) {
-        Account acc = bankService.getAccount(accountId);
-        if (acc == null) throw new IllegalArgumentException("找不到該帳戶");
-        return acc.getBalance();
-    }
+	// 優化前：public ApiResponse<BigDecimal> ... return ApiResponse.success(balance);
+	// 優化後：直接回傳 BigDecimal，Advice 會幫你包成 {"code":200, "data": 100.0}
+	@GetMapping("/balance/{accountId}")
+	public BigDecimal getBalance(@PathVariable String accountId) {
+		Account acc = bankService.getAccount(accountId);
+		if (acc == null)
+			throw new IllegalArgumentException("找不到該帳戶");
+		return acc.getBalance();
+	}
 
-    @PostMapping("/transfer")
-    public String transfer(@RequestBody TransferRequest request) {
-        bankService.transfer(request.getFromAccountId(), request.getToAccountId(), request.getAmount());
-        return "轉帳成功"; // Advice 會處理 String 的轉 JSON 邏輯，前端收到 {"code":200, "data":"轉帳成功"}
-    }
+	@PostMapping("/transfer")
+	public String transfer(@RequestBody TransferRequest request) {
+		bankService.transfer(request.getFromAccountId(), request.getToAccountId(), request.getAmount());
+		return "轉帳成功"; // Advice 會處理 String 的轉 JSON 邏輯，前端收到 {"code":200, "data":"轉帳成功"}
+	}
 
     /**
      * 壓力測試接口
@@ -46,5 +45,13 @@ public class BankController {
         
         // 3. 如果能執行到這行，代表成功，回傳統一格式
         return "壓測單筆執行成功";
+    }
+    
+    @PostMapping("/batch-init")
+    public String initMassiveData() {
+        int count = 10000;
+        bankService.generateMassiveData(count);
+        // 因為你有 GlobalResponseBodyAdvice，這字串會被包裝成 JSON 格式
+        return "成功初始化 " + count + " 筆帳戶資料，餘額皆大於 10,000";
     }
 }

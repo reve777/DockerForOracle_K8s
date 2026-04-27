@@ -345,8 +345,9 @@
         document.getElementById('beBalance').innerText = "0";
 
         try {
-            const response = await fetch(`${API_BASE}/concurrent-transfers?totalRequests=${totalReq}&threadPoolSize=${threadPool}`, {
-                method: 'POST',
+            //const response = await fetch(`${API_BASE}/concurrent-transfers?totalRequests=${totalReq}&threadPoolSize=${threadPool}`, {
+			const response = await fetch(`${API_BASE}/redis-transfers?totalRequests=${totalReq}&threadPoolSize=${threadPool}`, {  
+				  method: 'POST',
                 headers: getHeaders()
             });
 

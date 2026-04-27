@@ -3,6 +3,7 @@ package com.portfolio.bank.controller;
 import com.portfolio.bank.dto.SimulationResult;
 import com.portfolio.bank.dto.TransferRequest;
 import com.portfolio.bank.entity.Account;
+import com.portfolio.bank.service.BankRedisSimulationService;
 import com.portfolio.bank.service.BankService;
 import com.portfolio.bank.service.BankSimulationService;
 
@@ -20,6 +21,7 @@ public class BankController {
 	private final BankService bankService;
 	
 	private final BankSimulationService simulationService;
+	private final BankRedisSimulationService redisSimulationService;
 	
 	// 優化前：public ApiResponse<BigDecimal> ... return ApiResponse.success(balance);
 	// 優化後：直接回傳 BigDecimal，Advice 會幫你包成 {"code":200, "data": 100.0}
@@ -72,6 +74,19 @@ public class BankController {
             @RequestParam(defaultValue = "100") int threadPoolSize) {
         
         SimulationResult result = simulationService.simulateHighConcurrency(totalRequests, threadPoolSize);
+        return result;
+    }
+    /**
+     * 增加redis 緩存
+     * 觸發高併發轉帳測試
+     * 預設：模擬 10,000 筆請求，使用 100 個併發執行緒
+     */
+    @PostMapping("/redis-transfers")
+    public SimulationResult runConcurrentTransfersByRedis(
+            @RequestParam(defaultValue = "10000") int totalRequests,
+            @RequestParam(defaultValue = "100") int threadPoolSize) {
+        
+        SimulationResult result = redisSimulationService.simulateWithRedis(totalRequests, threadPoolSize);
         return result;
     }
 }

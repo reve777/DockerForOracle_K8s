@@ -1,0 +1,57 @@
+graph TD
+    subgraph Client_Side [客戶端 / 行動端]
+        APP["APP<br/>(iOS: SwiftUI / Android: Kotlin)<br/>功能：啟用、換機、登入、驗證"]
+    end
+
+    subgraph MAS_Infrastructure [MAS 基礎架構]
+        F5["F5 (Load Balancer)<br/>Web VIP"]
+        WebAP["WebAP x2"]
+        Radius["Radius (Auth)"]
+        VM["VM"]
+        
+        F5 --> WebAP
+        VM --> Radius
+    end
+
+    subgraph Backend_Services [後端服務層]
+        RP_VIP["RP VIP"]
+        RP["RP x2 (Reverse Proxy)<br/>Node.js"]
+        Nginx["Nginx"]
+        DB1[("Database")]
+        HSM1["HSM (硬體安全模組)"]
+
+        WebAP --> RP_VIP
+        RP_VIP --> RP
+        RP --> Nginx
+        RP --> DB1
+        RP --> HSM1
+    end
+
+    subgraph Admin_Management [管理端 - RACM]
+        RACM_User["管理員 / 安控人員<br/>(Only for 安控使用)"]
+        RACM["RACM (Node.js x2)<br/>ACC管理：新增、修改、<br/>帳號管理、安控項目：註銷、<br/>換機、各項 Log、<br/>參數設定"]
+        DB2[("Database")]
+        HSM2["HSM"]
+
+        RACM_User --> RACM
+        RACM --> DB2
+        RACM --> HSM2
+        %% 關鍵路徑：RACM 透過 RP VIP 管理 RP
+        RACM -->|管理指令| RP_VIP
+    end
+
+    subgraph Blockchain_Layer [區塊鏈業務層 - BCAS]
+        BCAS["BCAS (以太坊 Geth)<br/>主要執行區塊鏈"]
+        BCAS_Project["BCAS Project<br/>主程式：Node.js<br/>智能合約：Solidity"]
+        DR_Site["DR Site (災難復原)<br/>3+1 節點配置"]
+
+        RP --> BCAS
+        BCAS --> BCAS_Project
+        BCAS --> DR_Site
+    end
+
+    %% 樣式設定
+    classDef highlight fill:#f9f,stroke:#333,stroke-width:2px;
+    class BCAS,RACM highlight;
+    classDef vip fill:#e1f5fe,stroke:#01579b;
+    class RP_VIP,F5 vip;

@@ -1,8 +1,11 @@
 package com.portfolio.bank.controller;
 
+import com.portfolio.bank.dto.SimulationResult;
 import com.portfolio.bank.dto.TransferRequest;
 import com.portfolio.bank.entity.Account;
 import com.portfolio.bank.service.BankService;
+import com.portfolio.bank.service.BankSimulationService;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
@@ -15,7 +18,9 @@ import java.math.BigDecimal;
 public class BankController {
 
 	private final BankService bankService;
-
+	
+	private final BankSimulationService simulationService;
+	
 	// 優化前：public ApiResponse<BigDecimal> ... return ApiResponse.success(balance);
 	// 優化後：直接回傳 BigDecimal，Advice 會幫你包成 {"code":200, "data": 100.0}
 	@GetMapping("/balance/{accountId}")
@@ -53,5 +58,20 @@ public class BankController {
         bankService.generateMassiveData(count);
         // 因為你有 GlobalResponseBodyAdvice，這字串會被包裝成 JSON 格式
         return "成功初始化 " + count + " 筆帳戶資料，餘額皆大於 10,000";
+    }
+    
+    
+    
+    /**
+     * 觸發高併發轉帳測試
+     * 預設：模擬 10,000 筆請求，使用 100 個併發執行緒
+     */
+    @PostMapping("/concurrent-transfers")
+    public SimulationResult runConcurrentTransfers(
+            @RequestParam(defaultValue = "10000") int totalRequests,
+            @RequestParam(defaultValue = "100") int threadPoolSize) {
+        
+        SimulationResult result = simulationService.simulateHighConcurrency(totalRequests, threadPoolSize);
+        return result;
     }
 }

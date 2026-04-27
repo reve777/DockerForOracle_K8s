@@ -1,10 +1,14 @@
 package com.portfolio.bank.service;
 
+import com.portfolio.bank.dto.SimulationResult;
 import com.portfolio.bank.entity.Account;
 import com.portfolio.bank.repository.AccountRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.log4j.Log4j2;
 
+import org.springframework.dao.CannotAcquireLockException;
+import org.springframework.dao.PessimisticLockingFailureException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +16,10 @@ import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @Log4j2
 @Service
@@ -59,7 +67,7 @@ public class BankService {
 
 		return true;
 	}
-
+	/** 創建資料*/
 	@Transactional
 	public void generateMassiveData(int count) {
 		// 1. 先清空現有帳戶，確保測試環境一致
@@ -92,4 +100,80 @@ public class BankService {
 			accountRepository.saveAll(accounts);
 		}
 	}
+	
+//	public SimulationResult simulateHighConcurrency(int totalRequests, int threadPoolSize) {
+//        ExecutorService executor = Executors.newFixedThreadPool(threadPoolSize);
+//        CountDownLatch latch = new CountDownLatch(totalRequests);
+//
+//        // 使用 AtomicInteger 確保多執行緒下計數準確
+//        AtomicInteger successCount = new AtomicInteger();
+//        AtomicInteger failCount = new AtomicInteger();
+//        AtomicInteger optimisticLockExCount = new AtomicInteger();
+//        AtomicInteger pessimisticLockExCount = new AtomicInteger();
+//        AtomicInteger insufficientBalanceCount = new AtomicInteger();
+//
+//        Random random = new Random();
+//        long startTime = System.currentTimeMillis();
+//
+//        for (int i = 0; i < totalRequests; i++) {
+//            executor.submit(() -> {
+//                try {
+//                    // 隨機產生 A00001 ~ A10000 的帳號
+//                    String fromId = String.format("A%05d", random.nextInt(10000) + 1);
+//                    String toId = String.format("A%05d", random.nextInt(10000) + 1);
+//
+//                    // 確保轉出跟轉入不是同一個帳號
+//                    while (fromId.equals(toId)) {
+//                        toId = String.format("A%05d", random.nextInt(10000) + 1);
+//                    }
+//
+//                    // 隨機轉帳金額 1 ~ 50
+//                    BigDecimal amount = BigDecimal.valueOf(random.nextInt(50) + 1);
+//
+//                    // 執行轉帳
+//                    this.transfer(fromId, toId, amount);
+//                    successCount.incrementAndGet();
+//
+//                } catch (ObjectOptimisticLockingFailureException e) {
+//                    // 樂觀鎖衝突 (Version 不符)
+//                    optimisticLockExCount.incrementAndGet();
+//                    failCount.incrementAndGet();
+//                } catch (PessimisticLockingFailureException e) {
+//                    // 悲觀鎖超時或死結 (DB Row Lock Timeout)
+//                    pessimisticLockExCount.incrementAndGet();
+//                    failCount.incrementAndGet();
+//                } catch (IllegalStateException e) {
+//                    if ("餘額不足".equals(e.getMessage())) {
+//                        insufficientBalanceCount.incrementAndGet();
+//                    }
+//                    failCount.incrementAndGet();
+//                } catch (Exception e) {
+//                    log.error("未預期的錯誤", e);
+//                    failCount.incrementAndGet();
+//                } finally {
+//                    latch.countDown(); // 任務執行完畢，計數減一
+//                }
+//            });
+//        }
+//
+//        try {
+//            latch.await(); // 主執行緒等待所有子執行緒執行完畢
+//        } catch (InterruptedException e) {
+//            Thread.currentThread().interrupt();
+//        } finally {
+//            executor.shutdown();
+//        }
+//
+//        long endTime = System.currentTimeMillis();
+//
+//        return new SimulationResult(
+//                totalRequests,
+//                successCount.get(),
+//                failCount.get(),
+//                optimisticLockExCount.get(),
+//                pessimisticLockExCount.get(),
+//                insufficientBalanceCount.get(),
+//                (endTime - startTime)
+//        );
+//    }
 }

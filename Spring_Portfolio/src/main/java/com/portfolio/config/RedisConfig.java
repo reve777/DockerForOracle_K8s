@@ -75,24 +75,53 @@ public class RedisConfig {
 		return template;
 	}
 
+//	@Bean
+//	public RedissonClient redissonClient() {
+//		Config config = new Config();
+//
+//		// 使用單機模式
+//		config.useSingleServer()
+//				.setAddress("redis://" + host + ":" + port)
+//				.setDatabase(database)
+//				.setTimeout(3000) // 稍微縮短連線超時，避免死等
+//				.setConnectionPoolSize(200) // 🔥 與 HikariCP 同步
+//				.setConnectionMinimumIdleSize(50) // 提高常駐連線數
+//				.setRetryAttempts(3) // 增加重試次數
+//				.setRetryInterval(1500); // 重試間隔
+//
+//		if (password != null && !password.isEmpty()) {
+//			config.useSingleServer().setPassword(password);
+//		}
+//
+//		return Redisson.create(config);
+//	}
 	@Bean
 	public RedissonClient redissonClient() {
-		Config config = new Config();
+	    Config config = new Config();
 
-		// 使用單機模式
-		config.useSingleServer()
-				.setAddress("redis://" + host + ":" + port)
-				.setDatabase(database)
-				.setTimeout(3000) // 稍微縮短連線超時，避免死等
-				.setConnectionPoolSize(200) // 🔥 與 HikariCP 同步
-				.setConnectionMinimumIdleSize(50) // 提高常駐連線數
-				.setRetryAttempts(3) // 增加重試次數
-				.setRetryInterval(1500); // 重試間隔
+	    // 1. 設定序列化方式 (建議加在這裡)
+	    // 使用 StringCodec 可以解決日誌中的 ClassCastException (String cannot be cast to Long)
+	    config.setCodec(new org.redisson.client.codec.StringCodec());
 
-		if (password != null && !password.isEmpty()) {
-			config.useSingleServer().setPassword(password);
-		}
+	    // 2. 設定 Netty 線程數 (針對 200 併發進行優化)
+	    config.setNettyThreads(64); 
 
-		return Redisson.create(config);
+	    // 3. 設定單機模式與連線池
+	    config.useSingleServer()
+	            .setAddress("redis://" + host + ":" + port)
+	            .setDatabase(database)
+	            .setTimeout(10000) // 💡 延長至 10 秒，避免高負載時 Response Timeout
+	            .setConnectionPoolSize(300) // 🚀 高於執行緒數 (200)，確保不排隊
+	            .setConnectionMinimumIdleSize(100)
+	            .setRetryAttempts(5)
+	            .setRetryInterval(2000)
+	            .setPingConnectionInterval(30000);
+
+	    if (password != null && !password.isEmpty()) {
+	        config.useSingleServer().setPassword(password);
+	    }
+
+	    // 4. 最後才建立實例
+	    return Redisson.create(config);
 	}
 }

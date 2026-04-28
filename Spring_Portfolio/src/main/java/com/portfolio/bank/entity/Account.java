@@ -44,9 +44,9 @@ public class Account implements Persistable<String> {
      * 當呼叫 repository.save() 時，JPA 會直接執行 INSERT 而非先 SELECT。
      */
     @Override
-    @Transient // 此欄位不對應資料庫
+    @Transient
     public boolean isNew() {
-        return true; 
+        return version == null;
     }
 
     public void addBalance(BigDecimal amount) {

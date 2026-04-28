@@ -15,14 +15,26 @@ import java.math.BigDecimal;
 @RestController
 @RequestMapping("/api/bank")
 @CrossOrigin(origins = "*")
-@RequiredArgsConstructor
+//@RequiredArgsConstructor
 public class BankController {
 
 	private final BankService bankService;
 	
 	private final BankSimulationService simulationService;
-	private final BankRedisSimulationService redisSimulationService;
+//	private final BankRedisSimulationService redisSimulationService;
 	
+	private final java.util.Optional<BankRedisSimulationService> redisSimulationService;
+
+    // 手寫建構子（或使用 @Autowired）來取代 @RequiredArgsConstructor 的強硬注入
+    public BankController(
+            BankService bankService, 
+            BankSimulationService simulationService, 
+            java.util.Optional<BankRedisSimulationService> redisSimulationService) {
+        this.bankService = bankService;
+        this.simulationService = simulationService;
+        this.redisSimulationService = redisSimulationService;
+    }
+    
 	// 優化前：public ApiResponse<BigDecimal> ... return ApiResponse.success(balance);
 	// 優化後：直接回傳 BigDecimal，Advice 會幫你包成 {"code":200, "data": 100.0}
 	@GetMapping("/balance/{accountId}")
@@ -86,7 +98,9 @@ public class BankController {
             @RequestParam(defaultValue = "10000") int totalRequests,
             @RequestParam(defaultValue = "100") int threadPoolSize) {
         
-        SimulationResult result = redisSimulationService.simulateWithRedis(totalRequests, threadPoolSize);
-        return result;
+    	// 檢查 Redis 版 Service 是否存在
+        return redisSimulationService
+            .map(service -> service.simulateWithRedis(totalRequests, threadPoolSize))
+            .orElseThrow(() -> new IllegalStateException("目前環境未啟用 Redis 功能 (spring.redis.enabled=false)"));
     }
 }

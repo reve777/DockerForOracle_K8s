@@ -10,7 +10,7 @@
     <th:block th:replace="~{./include/header :: headerContent}"></th:block>
 
 	<style>
-	        /* 1. 定義 Classify 風格的紫色按鈕與邊框 */
+	        /* 1. 定義顏色風格 */
 	        .btn-purple {
 	            background-color: #8e44ad !important;
 	            border-color: #8e44ad !important;
@@ -22,6 +22,7 @@
 	        }
 	        .text-purple { color: #8e44ad !important; }
 	        .border-purple { border-color: #8e44ad !important; }
+            .border-info-custom { border-color: #0dcaf0 !important; }
 
 	        /* 2. 餘額卡片樣式 */
 	        .balance-card {
@@ -101,19 +102,38 @@
 
                     <hr class="my-4 opacity-25">
 
-                    <h6 class="fw-bold border-start border-purple border-4 ps-2 mb-3">後端併發模擬 (1萬筆隨機互轉)</h6>
+                    <h6 class="fw-bold border-start border-purple border-4 ps-2 mb-3">後端併發模擬 (DB 事務方案)</h6>
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted">請求總數</label>
                             <input type="number" id="simTotalRequests" class="form-control" value="5000">
                         </div>
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold text-muted">執行緒池大小</label>
+                            <label class="form-label small fw-bold text-muted">執行緒池</label>
                             <input type="number" id="simThreadPoolSize" class="form-control" value="100">
                         </div>
                         <div class="col-12">
-                            <button class="btn btn-purple text-white w-100 py-2 fw-bold" id="btnBackendSim" onclick="runBackendSimulation()">
-                                🚀 觸發後端高併發模擬
+                            <button class="btn btn-purple text-white w-100 py-2 fw-bold" id="btnBackendSim" onclick="runSimulation('DB')">
+                                🚀 觸發後端 DB 高併發
+                            </button>
+                        </div>
+                    </div>
+
+                    <hr class="my-4 opacity-25">
+
+                    <h6 class="fw-bold border-start border-info border-4 ps-2 mb-3">Redis 高頻交易 (快取方案)</h6>
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">請求總數</label>
+                            <input type="number" id="redisTotalRequests" class="form-control" value="5000">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold text-muted">執行緒池</label>
+                            <input type="number" id="redisThreadPoolSize" class="form-control" value="200">
+                        </div>
+                        <div class="col-12">
+                            <button class="btn btn-info text-white w-100 py-2 fw-bold" id="btnRedisSim" onclick="runSimulation('REDIS')">
+                                ⚡ 啟動 Redis 閃電測試
                             </button>
                         </div>
                     </div>
@@ -170,7 +190,7 @@
                     <hr class="my-4 opacity-25">
 
                     <div id="backendResultPanel">
-                        <h6 class="fw-bold text-purple mb-3 text-center">後端模擬測試報告</h6>
+                        <h6 class="fw-bold text-purple mb-3 text-center" id="reportTitle">後端測試報告</h6>
                         <div class="row g-2 mb-3">
                             <div class="col-6">
                                 <div class="bg-light p-2 rounded text-center border">
@@ -231,7 +251,6 @@
     const API_BASE = '/portfolio/api/bank';
     let isTesting = false;
 
-    // 取得 Headers 的輔助函式 (包含 CSRF)
     function getHeaders() {
         const headers = { 'Content-Type': 'application/json' };
         const token = document.querySelector("meta[name='_csrf']")?.content;
@@ -240,7 +259,6 @@
         return headers;
     }
 
-    // 餘額刷新邏輯
     async function fetchBalances() {
         ['A00001', 'A00002'].forEach(async (id) => {
             try {
@@ -252,16 +270,13 @@
         });
     }
 
-    // 前端壓測功能
     async function runStressTest() {
         if (isTesting) return;
-        
         const count = parseInt(document.getElementById('testCount').value);
         const amount = parseFloat(document.getElementById('testAmount').value);
         const concurrency = parseInt(document.getElementById('concurrency').value);
         
-        let success = 0;
-        let error = 0;
+        let success = 0, error = 0;
         isTesting = true;
         
         document.getElementById('btnStress').disabled = true;
@@ -276,14 +291,12 @@
             document.getElementById('statError').innerText = error;
             document.getElementById('statProgress').innerText = percentage + "%";
             document.getElementById('progressBar').style.width = percentage + "%";
-            
             if (total % 20 === 0) fetchBalances();
         };
 
         const pool = new Set();
         for (let i = 0; i < count; i++) {
             if (!isTesting) break;
-
             const promise = fetch(`${API_BASE}/stress-test`, {
                 method: 'POST',
                 headers: getHeaders(),
@@ -291,28 +304,14 @@
             })
             .then(async response => {
                 const res = await response.json();
-                if (res.code === "200" || res.status === 200) {
-                    success++;
-                } else {
-                    error++;
-                    showError(res.message || "未知業務錯誤");
-                }
+                (res.code === "200" || res.status === 200) ? success++ : (error++, showError(res.message));
             })
-            .catch(err => {
-                error++;
-                showError("連線異常或系統崩潰");
-            })
-            .finally(() => {
-                pool.delete(promise);
-                updateUI();
-            });
+            .catch(() => { error++; showError("連線異常"); })
+            .finally(() => { pool.delete(promise); updateUI(); });
 
             pool.add(promise);
-            if (pool.size >= concurrency) {
-                await Promise.race(pool);
-            }
+            if (pool.size >= concurrency) await Promise.race(pool);
         }
-
         await Promise.all(pool);
         isTesting = false;
         document.getElementById('btnStress').disabled = false;
@@ -320,39 +319,28 @@
         fetchBalances(); 
     }
 
-    // 後端模擬執行
-    async function runBackendSimulation() {
-        const btn = document.getElementById('btnBackendSim');
-        const totalReq = document.getElementById('simTotalRequests').value;
-        const threadPool = document.getElementById('simThreadPoolSize').value;
-        const resultPanel = document.getElementById('backendResultPanel');
-        const errorMsgDiv = document.getElementById('backendErrorMsg');
-
-        if (!confirm(`確定要請後端執行 ${totalReq} 筆併發轉帳測試嗎？\n(將隨機從 10,000 筆帳號中抽取互轉)`)) return;
+    // --- 核心修改：通用的後端模擬器 (支援 DB 與 Redis) ---
+    async function runSimulation(type) {
+        const isRedis = (type === 'REDIS');
+        const btn = document.getElementById(isRedis ? 'btnRedisSim' : 'btnBackendSim');
+        const totalReq = document.getElementById(isRedis ? 'redisTotalRequests' : 'simTotalRequests').value;
+        const threadPool = document.getElementById(isRedis ? 'redisThreadPoolSize' : 'simThreadPoolSize').value;
+        const endpoint = isRedis ? 'redis-transfers' : 'concurrent-transfers';
+        
+        if (!confirm(`確定要執行 ${totalReq} 筆 ${isRedis?'[Redis 快取]':'[資料庫]'} 併發測試嗎？`)) return;
 
         btn.disabled = true;
         const originalText = btn.innerText;
-        btn.innerText = "⏳ 後端激戰中...";
-        errorMsgDiv.style.display = 'none';
-
-        // 重置數據
-        document.getElementById('beExecTime').innerText = "...";
-        document.getElementById('beTotalReq').innerText = totalReq;
-        document.getElementById('beSuccess').innerText = "0";
-        document.getElementById('beFail').innerText = "0";
-        document.getElementById('bePessimistic').innerText = "0";
-        document.getElementById('beOptimistic').innerText = "0";
-        document.getElementById('beBalance').innerText = "0";
+        btn.innerText = "⏳ 處理中...";
+        document.getElementById('backendErrorMsg').style.display = 'none';
+        document.getElementById('reportTitle').innerText = isRedis ? "後端測試報告 (Redis 快取)" : "後端測試報告 (DB 事務)";
+        document.getElementById('reportTitle').className = `fw-bold mb-3 text-center ${isRedis ? 'text-info' : 'text-purple'}`;
 
         try {
-            const response = await fetch(`${API_BASE}/concurrent-transfers?totalRequests=${totalReq}&threadPoolSize=${threadPool}`, {
-			//const response = await fetch(`${API_BASE}/redis-transfers?totalRequests=${totalReq}&threadPoolSize=${threadPool}`, {  
-				  method: 'POST',
+            const response = await fetch(`${API_BASE}/${endpoint}?totalRequests=${totalReq}&threadPoolSize=${threadPool}`, {
+                method: 'POST',
                 headers: getHeaders()
             });
-
-            if (!response.ok) throw new Error(`伺服器錯誤: ${response.status}`);
-
             const result = await response.json();
             
             if(result.data) {
@@ -360,48 +348,33 @@
                 document.getElementById('beTotalReq').innerText = result.data.totalRequests;
                 document.getElementById('beSuccess').innerText = result.data.successCount;
                 document.getElementById('beFail').innerText = result.data.failCount;
-                document.getElementById('bePessimistic').innerText = result.data.pessimisticLockExCount;
-                document.getElementById('beOptimistic').innerText = result.data.optimisticLockExCount;
-                document.getElementById('beBalance').innerText = result.data.insufficientBalanceCount;
+                document.getElementById('bePessimistic').innerText = result.data.pessimisticLockExCount || 0;
+                document.getElementById('beOptimistic').innerText = result.data.optimisticLockExCount || 0;
+                document.getElementById('beBalance').innerText = result.data.insufficientBalanceCount || 0;
             }
         } catch (e) {
-            errorMsgDiv.style.display = "block";
-            errorMsgDiv.innerText = "⚠️ 錯誤: " + e.message;
+            document.getElementById('backendErrorMsg').style.display = "block";
+            document.getElementById('backendErrorMsg').innerText = "⚠️ 錯誤: " + e.message;
         } finally {
             btn.disabled = false;
             btn.innerText = originalText;
             fetchBalances();
-            resultPanel.scrollIntoView({ behavior: 'smooth', block: 'end' });
+            document.getElementById('backendResultPanel').scrollIntoView({ behavior: 'smooth', block: 'end' });
         }
     }
 
-    // 初始化資料
     async function runInitData() {
         const btn = document.getElementById('btnInit');
         if (!confirm("確定要生成 10,000 筆測試資料嗎？")) return;
-
         btn.disabled = true;
         const originalText = btn.innerText;
         btn.innerText = "正在寫入資料庫...";
-
         try {
-            const response = await fetch(`${API_BASE}/batch-init`, {
-                method: 'POST',
-                headers: getHeaders()
-            });
+            const response = await fetch(`${API_BASE}/batch-init`, { method: 'POST', headers: getHeaders() });
             const res = await response.json();
-            if (res.code === "200" || res.status === 200 || res.success === true) {
-                alert("✅ 初始化成功！");
-            } else {
-                alert("❌ 失敗：" + res.message);
-            }
-        } catch (e) {
-            alert("⚠️ 系統連線異常：" + e.message);
-        } finally {
-            btn.disabled = false;
-            btn.innerText = originalText;
-            fetchBalances();
-        }
+            alert((res.code === "200" || res.status === 200 || res.success) ? "✅ 初始化成功！" : "❌ 失敗：" + res.message);
+        } catch (e) { alert("⚠️ 系統連線異常：" + e.message); }
+        finally { btn.disabled = false; btn.innerText = originalText; fetchBalances(); }
     }
 
     function showError(msg) {

@@ -57,10 +57,10 @@ public class BankRedisSimulationService {
 				int retryCount = 0;
 
 				// 隨機產生轉出 ID 與 轉入 ID
-				String fromId = String.format("A%05d", random.nextInt(100) + 1);
-				String toId = String.format("A%05d", random.nextInt(100) + 1);
+				String fromId = String.format("A%05d", random.nextInt(10000) + 1);
+				String toId = String.format("A%05d", random.nextInt(10000) + 1);
 				while (fromId.equals(toId)) { // 避免自己轉給自己
-					toId = String.format("A%05d", random.nextInt(100) + 1);
+					toId = String.format("A%05d", random.nextInt(10000) + 1);
 				}
 
 				/*

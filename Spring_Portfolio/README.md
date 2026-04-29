@@ -15,6 +15,6 @@ portfolio_2025 <p/>
 
 <img  width="100%" src="https://github.com/reve777/DockerForOracle_K8s/blob/master/Spring_Portfolio/src/main/resources/static/images/portfolio_tables.png" />
 
-<img  width="100%" src="https://github.com/reve777/DockerForOracle_K8s/blob/master/Spring_Portfolio/src/main/resources/static/images/A6.png" />
+<img  width="100%" src="https://github.com/reve777/DockerForOracle_K8s/blob/master/Spring_Portfolio/src/main/resources/static/images/A06.png" />
 
 <img  width="100%" src="https://github.com/reve777/DockerForOracle_K8s/blob/master/Spring_Portfolio/src/main/resources/static/images/A8.png" />

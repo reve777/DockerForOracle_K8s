@@ -112,4 +112,10 @@ public class PageController {
 		addSessionToModel(session, model);
 		return "bank"; // src/main/resources/templates/jwe/JweKeyCreate.html
 	}
+	
+	@RequestMapping("/linePay")
+	public String getLinePayPage(HttpSession session, Model model) {
+		addSessionToModel(session, model);
+		return "linePay";
+	}
 }

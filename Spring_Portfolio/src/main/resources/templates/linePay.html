@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <title>LINE Pay V4 綜合測試面板</title>
+    <th:block th:replace="~{./include/header :: headerContent}"></th:block>
+    <style>
+        .test-section { margin-bottom: 2rem; border-left: 5px solid #00b900; padding-left: 15px; }
+        .btn-group-custom { display: flex; gap: 10px; flex-wrap: wrap; }
+    </style>
+</head>
+<body class="bg-light">
+    <th:block th:replace="~{./include/navbar :: navbar}"></th:block>
+
+    <div class="container mt-5">
+        <div class="card shadow-sm p-4">
+            <div class="text-center mb-4">
+                <img src="https://pay.line.me/portal/img/logo_lp.png" style="height:40px" class="mb-2">
+                <h4>LINE Pay V4 API 測試面板</h4>
+            </div>
+
+            <div class="test-section">
+                <h5>1. 標準付款流 (Request)</h5>
+                <p class="text-muted">測試金額：NT$ 100</p>
+                <button id="payBtn" class="btn btn-success">執行支付請求 (Checkout)</button>
+            </div>
+
+            <div class="test-section">
+                <h5>2. 交易管理 (Capture / Refund / Details)</h5>
+                <div class="input-group mb-3">
+                    <span class="input-group-text">Transaction ID</span>
+                    <input type="text" id="targetTransactionId" class="form-control" placeholder="請輸入 Confirm 後取得的 ID">
+                </div>
+                <div class="btn-group-custom">
+                    <button onclick="handleAction('details')" class="btn btn-outline-primary">6.查詢付款明細</button>
+                    <button onclick="handleAction('refund')" class="btn btn-outline-danger">7.退款</button>
+                    <button onclick="handleAction('capture')" class="btn btn-outline-warning">4.請款 (Capture)</button>
+                    <button onclick="handleAction('void')" class="btn btn-outline-secondary">5.取消授權 (Void)</button>
+                </div>
+            </div>
+
+            <div class="test-section">
+                <h5>3. 預先授權測試 (RegKey)</h5>
+                <div class="input-group mb-3">
+                    <span class="input-group-text">RegKey</span>
+                    <input type="text" id="targetRegKey" class="form-control" placeholder="從 Confirm 回傳中取得">
+                </div>
+                <div class="btn-group-custom">
+                    <button onclick="handleRegAction('check')" class="btn btn-info text-white">8.檢查 Key 狀態</button>
+                    <button onclick="handleRegAction('payment')" class="btn btn-dark">9.執行預先授權付款</button>
+                    <button onclick="handleRegAction('expire')" class="btn btn-danger">10.刪除 regKey</button>
+                </div>
+            </div>
+
+            <hr>
+            <h6>API 回傳結果紀錄：</h6>
+            <pre id="apiLogger" class="bg-dark text-success p-3 rounded" style="min-height: 100px; font-size: 0.85rem;">等待操作...</pre>
+        </div>
+    </div>
+
+    <script th:inline="javascript">
+        $(document).ready(function () {
+            // CSRF 設定
+            const token = $("meta[name='_csrf']").attr("content");
+            const header = $("meta[name='_csrf_header']").attr("content");
+            $(document).ajaxSend((e, xhr) => { if (header && token) xhr.setRequestHeader(header, token); });
+
+            // 1. Checkout
+            $("#payBtn").on("click", function () {
+                const $btn = $(this);
+                $btn.prop('disabled', true).text('處理中...');
+                
+                $.ajax({
+                    url: "/portfolio/linepay/checkout",
+                    type: "POST",
+                    contentType: "application/json",
+                    success: function (res) {
+                        logResult(res);
+                        if (res.code === '200' && res.data.returnCode === '0000') {
+                            window.location.href = res.data.info.paymentUrl.web;
+                        } else {
+                            alert("錯誤: " + (res.data.returnMessage || res.message));
+                            $btn.prop('disabled', false).text('重新結帳');
+                        }
+                    }
+                });
+            });
+        });
+
+        // 通用動作處理 (Refund, Capture, etc.)
+        function handleAction(type) {
+            const tid = $("#targetTransactionId").val();
+            if (!tid) return alert("請先輸入 Transaction ID");
+
+            let url = `/portfolio/linepay/${type}/${tid}`;
+            let method = "POST";
+
+            if (type === 'details') {
+                url = `/portfolio/linepay/details?transactionId=${tid}`;
+                method = "GET";
+            }
+
+            $.ajax({
+                url: url,
+                type: method,
+                contentType: "application/json",
+                data: method === "POST" ? JSON.stringify({ amount: 100, currency: "TWD" }) : null,
+                success: (res) => logResult(res),
+                error: (err) => logResult(err)
+            });
+        }
+
+        // 預先授權動作處理
+        function handleRegAction(type) {
+            const regKey = $("#targetRegKey").val();
+            if (!regKey) return alert("請先輸入 RegKey");
+
+            let url = `/portfolio/linepay/preapproved/${regKey}/${type}`;
+            let method = (type === 'check') ? "GET" : "POST";
+
+            $.ajax({
+                url: url,
+                type: method,
+                contentType: "application/json",
+                data: type === 'payment' ? JSON.stringify({ amount: 100, currency: "TWD", orderId: "AUTO_"+Date.now(), productName: "自動扣款測試" }) : null,
+                success: (res) => logResult(res)
+            });
+        }
+
+        function logResult(obj) {
+            console.log(obj);
+            $("#apiLogger").text(JSON.stringify(obj, null, 4));
+        }
+    </script>
+</body>
+</html>

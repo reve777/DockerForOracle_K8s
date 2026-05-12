@@ -50,7 +50,11 @@ public class LDAPAuthorizationInterceptor implements HandlerInterceptor {
 //		LogUtils.system("userId="+userId);
 
 
-//		myAuth = "8,8,15,32,15,32,15,32,15,32,15,32,15,32,15,32,9";
+//		"8,8,15,
+//		32,15,32,
+//		15,32,15,
+//		32,15,32,
+//		15,32,15,32,9";
 		myAuth = "64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64";
 
 		// 讀取 HttpHeader 'my-auth'

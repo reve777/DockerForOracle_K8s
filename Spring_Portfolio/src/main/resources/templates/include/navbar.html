@@ -79,7 +79,9 @@
 							</li>
 							<li><a class="dropdown-item" th:href="@{/page/watch}">
 									<strong>Watch</strong> 選擇觀察商品</a></li>
-							<hr class="dropdown-divider">
+							<li>
+								<hr class="dropdown-divider">
+							</li>
 							<li><a class="dropdown-item" th:href="@{/page/classifyExcel}">
 									<strong>ClassifyExcel</strong> 匯入Excel</a></li>
 							<li>
@@ -88,10 +90,26 @@
 							<!-- JWE 金鑰 / License 功能連結 (統一由 PageController 處理路由，路徑 /page/jwekey/new) -->
 							<li><a class="dropdown-item" th:href="@{/page/jwekey/new}">
 									<strong>JWE</strong>金鑰 </a></li>
-							<hr class="dropdown-divider">
-									<li><a class="dropdown-item" th:href="@{/page/bank}">
-											<strong>模擬交易</strong></a></li>
 							<li>
+								<hr class="dropdown-divider">
+							</li>
+							<li><a class="dropdown-item" th:href="@{/page/bank}">
+									<strong>模擬交易</strong></a></li>
+							<li>
+								<hr class="dropdown-divider">
+							</li>
+							<li><a class="dropdown-item" th:href="@{/page/linePay}">
+									<strong>模擬linePayV4交易</strong></a></li>
+							<li>
+								<hr class="dropdown-divider">
+							</li>
+							<li><a class="dropdown-item" th:href="@{/kafka/kafkaTransaction}">
+									<strong>模擬支付事件 至 Kafka_Topic</strong></a></li>
+							<li>
+								<hr class="dropdown-divider">
+							</li>
+							<li><a class="dropdown-item" th:href="@{/kafka/kafkaListener}">
+									<strong>抓取圖表Listener_kafka</strong></a></li>							
 						</ul>
 					</li>
 

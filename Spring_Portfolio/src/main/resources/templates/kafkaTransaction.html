@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<title>Kafka 支付流程測試</title>
+
+<!-- 載入共用 header -->
+<th:block th:replace="~{./include/header :: headerContent}"></th:block>
+
+<style>
+    .log-container { 
+        background: #212529; 
+        color: #0dfd05; 
+        padding: 15px; 
+        border-radius: 5px; 
+        height: 350px; 
+        overflow-y: auto; 
+        font-family: Consolas, monospace; 
+        border: 2px solid #343a40;
+    }
+    .log-item { margin-bottom: 5px; border-bottom: 1px solid #2c3034; padding-bottom: 2px; }
+    .order-id { color: #ffc107; font-weight: bold; }
+</style>
+
+<script th:inline="javascript">
+/*<![CDATA[*/
+$(document).ready(function () {
+    
+    // 1. CSRF 全域設定
+    var token = $("meta[name='_csrf']").attr("content");
+    var header = $("meta[name='_csrf_header']").attr("content");
+    $(document).ajaxSend(function(e, xhr, options) {
+        if (header && token) {
+            xhr.setRequestHeader(header, token);
+        }
+    });
+
+    // 2. 點擊模擬支付按鈕事件
+    $("#payBtn").on("click", function () {
+        var $log = $("#log");
+        var now = new Date().toLocaleTimeString();
+        $log.append('<div class="log-item">[' + now + '] > 正在呼叫 API...</div>');
+        scrollToBottom($log);
+
+        $.ajax({
+            url: '/portfolio/api/test/simulate-pay-success',
+            type: 'POST',
+            success: function (res) {
+                console.log("後端回傳結果:", res);
+                
+                var displayContent = "";
+                
+                // 判斷是否為你定義的 ApiResponse 物件
+                if (res && typeof res === 'object') {
+                    // 這裡處理你的 data 字串，並把 OrderID 部分標亮
+                    var rawData = res.data || "";
+                    var highlightedData = rawData.replace(/(ORD-\d+)/, '<span class="order-id">$1</span>');
+                    
+                    displayContent = '<span class="text-warning">[' + res.message + ']</span> ' + highlightedData;
+                } else {
+                    // 若回傳只是單純字串
+                    displayContent = res;
+                }
+
+                $log.append('<div class="log-item text-info">> Kafka 回報: ' + displayContent + '</div>');
+                scrollToBottom($log);
+            },
+            error: function (xhr, status, error) {
+                var errorMsg = error;
+                // 嘗試從後端回傳的 JSON 提取錯誤訊息
+                if (xhr.responseJSON && xhr.responseJSON.message) {
+                    errorMsg = xhr.responseJSON.message;
+                }
+                $log.append('<div class="log-item text-danger">> 錯誤: ' + errorMsg + '</div>');
+                scrollToBottom($log);
+            }
+        });
+    });
+
+    function scrollToBottom($elem) {
+        $elem.scrollTop($elem[0].scrollHeight);
+    }
+});
+/*]]>*/
+</script>
+</head>
+<body class="bg-light">
+
+<!-- 載入共用導覽列 -->
+<th:block th:replace="~{./include/navbar :: navbar}"></th:block>
+
+<div class="container pt-5 mt-4 pb-5">
+    <div class="row justify-content-center">
+        <div class="col-md-9">
+            <div class="card shadow-sm border-0">
+                <div class="card-header bg-primary text-white py-3 d-flex justify-content-between align-items-center">
+                    <h1 class="h4 mb-0">模擬支付系統 尚未串接綠界 (Kafka Callback 測試)</h1>
+                    <span class="badge bg-light text-primary">Status: Online</span>
+                </div>
+                <div class="card-body p-4">
+                    <div class="alert alert-info border-0 shadow-sm">
+                        <i class="fas fa-info-circle me-2"></i>
+                        點擊下方按鈕以模擬「綠界支付成功」回傳。系統將會產送一筆訂單成功事件至 Kafka Topic。
+                    </div>
+                    
+                    <div class="text-center my-4">
+                        <button id="payBtn" type="button" class="btn btn-success btn-lg px-5 shadow">
+                            <i class="fas fa-credit-card me-2"></i> 模擬支付成功 (NT$ 36,900)
+                        </button>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <h5 class="fw-bold mb-0"><i class="fas fa-terminal me-2"></i>系統日誌 (System Logs):</h5>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="$('#log').html('<div>> 已清空日誌</div>')">清除</button>
+                    </div>
+                    
+                    <div id="log" class="log-container shadow-inner">
+                        <div class="log-item">> 等待操作...</div>
+                    </div>
+                    
+                    <div class="mt-3 text-muted small">
+                        <i class="fas fa-server me-1"></i> 連線目標: <code th:text="${@environment.getProperty('spring.kafka.bootstrap-servers') ?: 'localhost:9092'}">localhost:9092</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 載入共用頁尾 -->
+<th:block th:replace="~{./include/footer :: footer}"></th:block>
+
+</body>
+</html>

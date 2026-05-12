@@ -32,10 +32,13 @@ import net.ttddyy.dsproxy.support.ProxyDataSourceBuilder;
  * 支持 Local (JDBC) 與 Server (JNDI) 環境切換
  */
 @Configuration
-@EnableJpaRepositories(
-		basePackages = {"com.portfolio.repository","com.portfolio.bank.repository"},
-		entityManagerFactoryRef = "proxyEntityManager",
-		transactionManagerRef = "proxyTransactionManager"
+@EnableJpaRepositories(//
+		basePackages = { //
+				"com.portfolio.repository",
+				"com.portfolio.bank.repository",
+				"com.portfolio.Kafka.repository" }, //
+		entityManagerFactoryRef = "proxyEntityManager", //
+		transactionManagerRef = "proxyTransactionManager" //
 )
 @EnableTransactionManagement
 @RequiredArgsConstructor
@@ -74,7 +77,8 @@ public class ProxyDataSourceConfig {
 				jndiBean.afterPropertiesSet();
 				baseDataSource = (DataSource) jndiBean.getObject();
 			} catch (Exception e) {
-				throw new RuntimeException("Failed to initialize JNDI DataSource. Check your server context or properties.", e);
+				throw new RuntimeException(
+						"Failed to initialize JNDI DataSource. Check your server context or properties.", e);
 			}
 		}
 
@@ -89,13 +93,16 @@ public class ProxyDataSourceConfig {
 
 	/*
 	 * 實體管理器工廠
+	 * Jpa 掃描entity 需要手動設定對應相對路徑
 	 */
 	@Primary
 	@Bean(name = "proxyEntityManager")
 	public LocalContainerEntityManagerFactoryBean proxyEntityManager() {
 		LocalContainerEntityManagerFactoryBean em = new LocalContainerEntityManagerFactoryBean();
 		em.setDataSource(proxyDataSource());
-		em.setPackagesToScan(DataSourceConstraints.SELF_ENTITIES_PACKAGE,DataSourceConstraints.SELF_ENTITIES_BANK_PACKAGE);
+		em.setPackagesToScan(DataSourceConstraints.SELF_ENTITIES_PACKAGE,
+				DataSourceConstraints.SELF_ENTITIES_BANK_PACKAGE,
+				DataSourceConstraints.SELF_ENTITIES_KAFKA_PACKAGE);
 
 		HibernateJpaVendorAdapter vendorAdapter = new HibernateJpaVendorAdapter();
 		em.setJpaVendorAdapter(vendorAdapter);

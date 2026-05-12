@@ -43,47 +43,80 @@
     <loggers>
         <!-- Root Logger: 預設日誌處理器，所有未明確指定的 logger 都會使用此設定 -->
         <root level="${ROOT_LOG_LEVEL}">
-            <appender-ref ref="Console"/>
-            <appender-ref ref="RollingFileAll"/>
+			<appender-ref ref="Console" />
+			<appender-ref ref="RollingFileAll" />
         </root>
 
         <!-- Hibernate SQL Logger: 控制 SQL 語句的日誌輸出等級 -->
         <logger name="org.hibernate.SQL" level="${HIBERNATE_LOG_LEVEL}" additivity="false">
-            <appender-ref ref="Console"/>
-            <appender-ref ref="RollingFileAll"/>
+			<appender-ref ref="Console" />
+			<appender-ref ref="RollingFileAll" />
         </logger>
-
         <!-- Spring Data JPA Query Logger: 避免大量 JPA 內部查詢日誌干擾業務日誌，如需調試可改為 DEBUG -->
         <logger name="org.springframework.data.jpa.repository.query" level="WARN" additivity="false">
-            <appender-ref ref="Console"/>
-            <appender-ref ref="RollingFileAll"/>
+			<appender-ref ref="Console" />
+			<appender-ref ref="RollingFileAll" />
         </logger>
 
         <!-- Spring ORM JPA Logger: 避免大量 EntityManager 生命週期日誌，如需調試可改為 DEBUG -->
         <logger name="org.springframework.orm.jpa" level="WARN" additivity="false">
-            <appender-ref ref="Console"/>
-            <appender-ref ref="RollingFileAll"/>
+			<appender-ref ref="Console" />
+			<appender-ref ref="RollingFileAll" />
         </logger>
 
         <!-- HikariCP Connection Pool Logger: 避免大量連接取得/歸還日誌，如需調試可改為 DEBUG -->
         <logger name="com.zaxxer.hikari" level="WARN" additivity="false">
-            <appender-ref ref="Console"/>
-            <appender-ref ref="RollingFileAll"/>
+			<appender-ref ref="Console" />
+			<appender-ref ref="RollingFileAll" />
         </logger>
 
         <!-- JMX RMI Logger: 過濾 RMI 通訊內部錯誤，這些通常不影響業務功能 -->
         <logger name="sun.rmi" level="ERROR" additivity="false">
-            <appender-ref ref="Console"/>
+			<appender-ref ref="Console" />
         </logger>
 
         <!-- JMX Management Logger: 過濾 JMX Bean 註冊/管理的內部警告 -->
         <logger name="javax.management" level="ERROR" additivity="false">
-            <appender-ref ref="Console"/>
+			<appender-ref ref="Console" />
         </logger>
 
         <!-- Sun Logging Utility: 過濾 JDK 內部日誌工具的警告信息 -->
         <logger name="sun.util.logging" level="ERROR" additivity="false">
-            <appender-ref ref="Console"/>
+			<appender-ref ref="Console" />
         </logger>
+        
+        
+        		<!--kafka不顯示太多-->
+		<logger name="org.apache.kafka.common.config.AbstractConfig"
+			level="WARN" />
+		<logger name="org.apache.kafka.clients.admin.AdminClientConfig"
+			level="WARN" />
+        <!-- 1. 針對所有 Kafka 配置輸出的父類別進行封鎖 -->
+		<logger name="org.apache.kafka.common.config.AbstractConfig"
+			level="WARN" additivity="false">
+			<appender-ref ref="Console" />
+			<appender-ref ref="RollingFileAll" />
+		</logger>
+
+		<!-- 2. 針對 Consumer 特別設定（你剛剛貼的那段就是它印的） -->
+		<logger name="org.apache.kafka.clients.consumer.ConsumerConfig"
+			level="WARN" additivity="false">
+			<appender-ref ref="Console" />
+			<appender-ref ref="RollingFileAll" />
+		</logger>
+
+		<!-- 3. 針對 Producer (保險起見也加上) -->
+		<logger name="org.apache.kafka.clients.producer.ProducerConfig"
+			level="WARN" additivity="false">
+			<appender-ref ref="Console" />
+			<appender-ref ref="RollingFileAll" />
+		</logger>
+
+		<!-- 4. 針對 AdminClient (你上次印的那段) -->
+		<logger name="org.apache.kafka.clients.admin.AdminClientConfig"
+			level="WARN" additivity="false">
+			<appender-ref ref="Console" />
+			<appender-ref ref="RollingFileAll" />
+		</logger>
     </loggers>
 </configuration>

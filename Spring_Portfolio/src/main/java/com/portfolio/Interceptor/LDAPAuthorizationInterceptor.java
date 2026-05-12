@@ -49,8 +49,9 @@ public class LDAPAuthorizationInterceptor implements HandlerInterceptor {
 //		LogUtils.system("myAuth="+myAuth);
 //		LogUtils.system("userId="+userId);
 
-		// 測試Code
-		myAuth = "8,8,15,32,15,32,15,32,15,32,15,32,15,32,15,32,9"; // 全開(看Excel: Portal權限表)
+
+//		myAuth = "8,8,15,32,15,32,15,32,15,32,15,32,15,32,15,32,9";
+		myAuth = "64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64";
 
 		// 讀取 HttpHeader 'my-auth'
 		if (myAuth == null) {

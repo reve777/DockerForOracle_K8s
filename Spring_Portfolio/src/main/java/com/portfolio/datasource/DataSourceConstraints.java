@@ -10,4 +10,7 @@ public interface DataSourceConstraints {
     String SELF_ENTITIES_PACKAGE = "com.portfolio.entity";
     
     String SELF_ENTITIES_BANK_PACKAGE = "com.portfolio.bank.entity";
+    
+    String SELF_ENTITIES_KAFKA_PACKAGE = "com.portfolio.Kafka.model";
+    
 }

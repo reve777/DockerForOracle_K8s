@@ -8,9 +8,9 @@ import java.util.List;
  */
 public class SystemConstants {
     // 系統代號
-    public static final String 	SYSTEM_ID = "portal",
-    							HOSTNAME_TXN1 = "TXN1",
-    							HOSTNAME_TXN2 = "TXN2";
+    public static final String 	SYSTEM_ID = "portfolio",
+    							HOSTNAME_TXN1 = "PORTFOLIO1",
+    							HOSTNAME_TXN2 = "PORTFOLIO2";
 
     // 全域參數
     public static final String 	DEFAULT_ERROR_VIEW = "error",
@@ -26,8 +26,8 @@ public class SystemConstants {
   								PERMISSION_DEPT_ID = "user_deptid",
   								PERMISSION_DEPT_NAME = "user_deptname",
   								PERMISSION_TEL_NUMBER = "user_telNumber",
-  		  						PERMISSION_SYSTEM_ID = "Ivan_AP039",
-  								SYSTEM_ID_STR = "AP039";
+  		  						PERMISSION_SYSTEM_ID = "Ivan_AP001",
+  								SYSTEM_ID_STR = "AP001";
 
     // 分頁參數
     public static final String 	PAGINATION_NUMBER_0 = "0",
@@ -85,7 +85,6 @@ public class SystemConstants {
     						READ_COMMITTED_TIMEOUT = 5,		// 產生PK重試次數
     						AUDIT_URL_TRUNCATE = 5;
 
-    // Log 相關參數
     public static final int 	SINGLE_RECORD_COUNT = 1; // 單筆查詢紀錄筆數
     public static final String 	USER_ID_KEY = "userId",
     							USER_NAME_KEY = "userName",
@@ -126,14 +125,12 @@ public class SystemConstants {
     							ALERT_LEVEL_WARN = "WARN",
     							ALERT_LEVEL_ERROR = "ERROR";
 
-    // 系統參數相關
     public static final String 	LOOKUP_TYPE_TXNIP = "TXNIP",
 								LOOKUP_CODE_TXN1 = "TXN1",
 								LOOKUP_CODE_TXN2 = "TXN2",
 								DEFAULT_TXN1_NAME = "TXN1",
 								DEFAULT_TXN2_NAME = "TXN2";
 
-    // HSM 加解密相關
     public static final String 	LOOKUP_TYPE_SECURITY = "SECURITY",
     							LOOKUP_CODE_MASTER_KEY = "MASTER_KEY";
 

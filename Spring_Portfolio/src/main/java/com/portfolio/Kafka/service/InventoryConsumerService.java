@@ -1,5 +1,6 @@
 package com.portfolio.Kafka.service;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.annotation.RetryableTopic;
 import org.springframework.kafka.support.KafkaHeaders;
@@ -10,6 +11,7 @@ import org.springframework.stereotype.Service;
 import com.portfolio.Kafka.model.dto.OrderEvent;
 
 @Service
+@ConditionalOnProperty(value = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class InventoryConsumerService {
 
 	// 設定重試 3 次，每次間隔 2 秒。失敗後送入 DLT。

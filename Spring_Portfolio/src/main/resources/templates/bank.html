@@ -114,14 +114,14 @@
                         </div>
                         <div class="col-12">
                             <button class="btn btn-purple text-white w-100 py-2 fw-bold" id="btnBackendSim" onclick="runSimulation('DB')">
-                                🚀 觸發後端 DB 高併發
+                                🚀 觸發後端 DB 測試
                             </button>
                         </div>
                     </div>
 
                     <hr class="my-4 opacity-25">
 
-                    <h6 class="fw-bold border-start border-info border-4 ps-2 mb-3">Redis 高頻交易 (快取方案)</h6>
+                    <h6 class="fw-bold border-start border-info border-4 ps-2 mb-3">Redis 高頻交易</h6>
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
                             <label class="form-label small fw-bold text-muted">請求總數</label>
@@ -133,11 +133,45 @@
                         </div>
                         <div class="col-12">
                             <button class="btn btn-info text-white w-100 py-2 fw-bold" id="btnRedisSim" onclick="runSimulation('REDIS')">
-                                ⚡ 啟動 Redis 閃電測試
+                                ⚡ 啟動 Redis 測試
                             </button>
                         </div>
                     </div>
+					
+					<hr class="my-4 opacity-25">
 
+					<!-- 新增：Redis 資料預熱區塊 -->
+					<h6 class="fw-bold border-start border-warning border-4 ps-2 mb-3">Redis 資料預熱 (Preheat)</h6>
+					<div class="row g-3 mb-4">
+					    <div class="col-12">
+					        <p class="text-muted small mb-2">在執行 Redis LUA高頻交易測試前，請先將 DB 帳戶資料載入 Redis 快取中。</p>
+					        <button class="btn btn-warning text-dark w-100 py-2 fw-bold" id="btnPreheat" onclick="preheatRedis()">
+					            🔥 執行 Redis 資料預熱
+					        </button>
+					    </div>
+					</div>
+
+					<hr class="my-4 opacity-25">
+
+					<h6 class="fw-bold border-start border-info border-4 ps-2 mb-3">Redis LUA交易+KafkaListener</h6>
+					<div class="row g-3 mb-4">
+					    <div class="col-md-6">
+					        <label class="form-label small fw-bold text-muted">請求總數</label>
+					        <input type="number" id="redisLuaTotalRequests" class="form-control" value="5000">
+					    </div>
+					    <div class="col-md-6">
+					        <label class="form-label small fw-bold text-muted">執行緒池</label>
+					        <input type="number" id="redisLuaThreadPoolSize" class="form-control" value="200">
+					    </div>
+					    <div class="col-12">
+							<button class="btn btn-danger text-white w-100 py-2 fw-bold" id="btnRedisLuaSim" onclick="runSimulation('REDISLUA')">
+							    ⚡ 啟動 Redis LUA測試
+							</button>
+					    </div>
+					</div>
+
+					
+					
                     <div class="bg-light p-3 rounded">
                         <label class="form-label small fw-bold text-muted d-block mb-2 text-center">開發者數據準備</label>
                         <button class="btn btn-success w-100 fw-bold" id="btnInit" onclick="runInitData()">
@@ -319,50 +353,108 @@
         fetchBalances(); 
     }
 
-    // --- 核心修改：通用的後端模擬器 (支援 DB 與 Redis) ---
-    async function runSimulation(type) {
-        const isRedis = (type === 'REDIS');
-        const btn = document.getElementById(isRedis ? 'btnRedisSim' : 'btnBackendSim');
-        const totalReq = document.getElementById(isRedis ? 'redisTotalRequests' : 'simTotalRequests').value;
-        const threadPool = document.getElementById(isRedis ? 'redisThreadPoolSize' : 'simThreadPoolSize').value;
-        const endpoint = isRedis ? 'redis-transfers' : 'concurrent-transfers';
-        
-        if (!confirm(`確定要執行 ${totalReq} 筆 ${isRedis?'[Redis 快取]':'[資料庫]'} 併發測試嗎？`)) return;
+	async function runSimulation(type) {
+	    // 1. 將 3 種測試情境統整成一個配置字典 (Dictionary)
+		//console.log("type",type);
+	    const configs = {
+	        'REDIS': {
+	            btnId: 'btnRedisSim', // 請確保 HTML 裡有對應的按鈕 ID
+	            reqInputId: 'redisTotalRequests',
+	            poolInputId: 'redisThreadPoolSize',
+	            endpoint: 'redis-transfers',
+	            typeName: '[Redis 一般]',
+	            titleText: '後端測試報告 (Redis 一般)',
+	            titleColor: 'text-primary' // 可以換成你喜歡的 Bootstrap 顏色
+	        },
+	        'REDISLUA': {
+	            btnId: 'btnRedisLuaSim', // 請確保 HTML 裡有對應的按鈕 ID
+	            reqInputId: 'redisLuaTotalRequests', // 假設與一般 Redis 共用輸入框
+	            poolInputId: 'redisLuaThreadPoolSize',
+	            endpoint: 'redis-transfersLua',
+	            typeName: '[Redis LUA]',
+	            titleText: '後端測試報告 (Redis LUA)',
+	            titleColor: 'text-info'
+	        },
+	        'DB': {
+	            btnId: 'btnBackendSim',
+	            reqInputId: 'simTotalRequests',
+	            poolInputId: 'simThreadPoolSize',
+	            endpoint: 'concurrent-transfers',
+	            typeName: '[資料庫]',
+	            titleText: '後端測試報告 (DB 事務)',
+	            titleColor: 'text-purple'
+	        }
+	    };
 
-        btn.disabled = true;
-        const originalText = btn.innerText;
-        btn.innerText = "⏳ 處理中...";
-        document.getElementById('backendErrorMsg').style.display = 'none';
-        document.getElementById('reportTitle').innerText = isRedis ? "後端測試報告 (Redis 快取)" : "後端測試報告 (DB 事務)";
-        document.getElementById('reportTitle').className = `fw-bold mb-3 text-center ${isRedis ? 'text-info' : 'text-purple'}`;
+	    // 取得當前傳入類型的配置設定
+	    const config = configs[type];
 
-        try {
-            const response = await fetch(`${API_BASE}/${endpoint}?totalRequests=${totalReq}&threadPoolSize=${threadPool}`, {
-                method: 'POST',
-                headers: getHeaders()
-            });
-            const result = await response.json();
-            
-            if(result.data) {
-                document.getElementById('beExecTime').innerText = result.data.executionTimeMs + " ms";
-                document.getElementById('beTotalReq').innerText = result.data.totalRequests;
-                document.getElementById('beSuccess').innerText = result.data.successCount;
-                document.getElementById('beFail').innerText = result.data.failCount;
-                document.getElementById('bePessimistic').innerText = result.data.pessimisticLockExCount || 0;
-                document.getElementById('beOptimistic').innerText = result.data.optimisticLockExCount || 0;
-                document.getElementById('beBalance').innerText = result.data.insufficientBalanceCount || 0;
-            }
-        } catch (e) {
-            document.getElementById('backendErrorMsg').style.display = "block";
-            document.getElementById('backendErrorMsg').innerText = "⚠️ 錯誤: " + e.message;
-        } finally {
-            btn.disabled = false;
-            btn.innerText = originalText;
-            fetchBalances();
-            document.getElementById('backendResultPanel').scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }
-    }
+	    // 防呆機制：如果傳入未知的 type 就提早結束
+	    if (!config) {
+	        console.error(`⚠️ 未知的測試類型: ${type}`);
+	        return;
+	    }
 
+	    const btn = document.getElementById(config.btnId);
+	    const totalReq = document.getElementById(config.reqInputId).value;
+	    const threadPool = document.getElementById(config.poolInputId).value;
+
+	    if (!confirm(`確定要執行 ${totalReq} 筆 ${config.typeName} 併發測試嗎？`)) return;
+
+	    const originalText = btn.innerText;
+	    btn.disabled = true;
+	    btn.innerText = "⏳ 處理中...";
+	    
+	    const errorMsgEl = document.getElementById('backendErrorMsg');
+	    errorMsgEl.style.display = 'none';
+	    
+	    const titleEl = document.getElementById('reportTitle');
+	    titleEl.innerText = config.titleText;
+	    titleEl.className = `fw-bold mb-3 text-center ${config.titleColor}`;
+
+	    try {
+	        const response = await fetch(`${API_BASE}/${config.endpoint}?totalRequests=${totalReq}&threadPoolSize=${threadPool}`, {
+	            method: 'POST',
+	            headers: getHeaders()
+	        });
+
+	        if (!response.ok) {
+	            throw new Error(`HTTP 錯誤: ${response.status}`);
+	        }
+
+	        const result = await response.json();
+	        
+	        if (result.data) {
+	            const updateUI = (id, value) => {
+	                const el = document.getElementById(id);
+	                if (el) el.innerText = value;
+	            };
+
+	            const data = result.data;
+	            updateUI('beExecTime', `${data.executionTimeMs} ms`);
+	            updateUI('beTotalReq', data.totalRequests);
+	            updateUI('beSuccess', data.successCount);
+	            updateUI('beFail', data.failCount);
+	            updateUI('bePessimistic', data.pessimisticLockExCount || 0);
+	            updateUI('beOptimistic', data.optimisticLockExCount || 0);
+	            updateUI('beBalance', data.insufficientBalanceCount || 0);
+	        }
+
+	    } catch (e) {
+	        errorMsgEl.style.display = "block";
+	        errorMsgEl.innerText = "⚠️ 錯誤: " + e.message;
+	    } finally {
+	        btn.disabled = false;
+	        btn.innerText = originalText;
+	        
+	        if (typeof fetchBalances === 'function') {
+	            fetchBalances();
+	        }
+	        
+	        document.getElementById('backendResultPanel').scrollIntoView({ behavior: 'smooth', block: 'end' });
+	    }
+	}
+	
     async function runInitData() {
         const btn = document.getElementById('btnInit');
         if (!confirm("確定要生成 10,000 筆測試資料嗎？")) return;
@@ -382,6 +474,29 @@
         errDiv.style.display = "block";
         errDiv.innerText = "失敗提示: " + msg;
     }
+	async function preheatRedis() {
+	    const btn = document.getElementById('btnPreheat');
+	    if (!confirm("確定要將 10,000 筆帳戶資料預熱至 Redis 嗎？")) return;
+	    
+	    btn.disabled = true;
+	    const originalText = btn.innerText;
+	    btn.innerText = "⏳ 預熱執行中...";
+	    
+	    try {
+	        const response = await fetch(`${API_BASE}/preheat`, { method: 'POST', headers: getHeaders() });
+	        const res = await response.json();
+	        
+	        alert((res.code === "200" || res.status === 200 || res.success) 
+	            ? "✅ " + (res.data || "預熱成功！") 
+	            : "❌ 失敗：" + (res.message || "請檢查後端 Log"));
+	            
+	    } catch (e) { 
+	        alert("⚠️ 系統連線異常：" + e.message); 
+	    } finally { 
+	        btn.disabled = false; 
+	        btn.innerText = originalText; 
+	    }
+	}
 
     window.onload = fetchBalances;
 </script>

@@ -9,6 +9,8 @@ import com.portfolio.Kafka.repository.OrderRecordRepository;
 import com.portfolio.Kafka.repository.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.messaging.handler.annotation.Header;
@@ -24,6 +26,7 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 @RequiredArgsConstructor
+@ConditionalOnProperty(value = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class OrderChartService {
 
 	private final OrderRecordRepository orderRecordRepository;

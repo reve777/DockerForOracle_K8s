@@ -1,5 +1,6 @@
 package com.portfolio.Kafka.service;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 
 import com.portfolio.Kafka.interf.MessagePublisher;
@@ -10,6 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor // 自動生成建構子，注入 MessagePublisher
+@ConditionalOnProperty(value = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class OrderProducerService {
 
     // ✅ 改用統一接口，泛型與 KafkaConfig 裡的 Object 匹配

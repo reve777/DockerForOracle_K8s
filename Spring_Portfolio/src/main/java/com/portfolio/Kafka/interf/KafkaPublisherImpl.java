@@ -1,6 +1,8 @@
 package com.portfolio.Kafka.interf;
 
 import java.util.List;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
@@ -10,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 
 @Component
 @RequiredArgsConstructor
+@ConditionalOnProperty(value = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class KafkaPublisherImpl implements MessagePublisher<String, Object> {
 
 	// 建議將 KafkaTemplate 宣告為 Object，這樣一個 Template 就能發送任何類型的 Payload

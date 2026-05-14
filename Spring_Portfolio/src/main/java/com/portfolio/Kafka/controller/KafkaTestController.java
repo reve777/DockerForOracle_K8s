@@ -1,6 +1,7 @@
 package com.portfolio.Kafka.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -11,6 +12,7 @@ import com.portfolio.Kafka.service.OrderProducerService;
 
 @RestController
 @RequestMapping("/api/test")
+@ConditionalOnProperty(value = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class KafkaTestController {
 
     // 注入你寫好的 Producer Service

@@ -3,6 +3,7 @@ package com.portfolio.Kafka.controller.demo2;
 import com.portfolio.Kafka.service.demo2.OrderChartService;
 import lombok.RequiredArgsConstructor;
 
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -13,6 +14,7 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/orders")
 @RequiredArgsConstructor
+@ConditionalOnProperty(value = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class KafkaController {
 
 	private final OrderChartService orderChartService;

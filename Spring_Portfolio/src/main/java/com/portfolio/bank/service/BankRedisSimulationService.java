@@ -138,6 +138,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Stream;
 
 @Slf4j
 @Service
@@ -225,9 +226,14 @@ public class BankRedisSimulationService {
 
 		long endTime = System.currentTimeMillis();
 		return new SimulationResult(
-				totalRequests, successCount.get(), failCount.get(),
-				optimisticLockExCount.get(), redisLockFailCount.get(),
-				insufficientBalanceCount.get(), (endTime - startTime));
+				totalRequests,
+				successCount.get(),
+				failCount.get(),
+//				optimisticLockExCount.get(), 
+				0,
+				redisLockFailCount.get(),
+				insufficientBalanceCount.get(),
+				(endTime - startTime));
 	}
 
 //    ============================use Lua=============================
@@ -246,16 +252,30 @@ public class BankRedisSimulationService {
 	 * -1: 餘額不足
 	 * -2: 帳戶不存在（fromKey 或 toKey 其中之一不存在）
 	 */
-	private static final String TRANSFER_LUA = "local fromKey = KEYS[1]; " + // 1. 取得轉出帳戶 Key
-			"local toKey = KEYS[2]; " + // 2. 取得轉入帳戶 Key
-			"local amount = tonumber(ARGV[1]); " + // 3. 轉帳金額轉為數字
-			"local fromBalance = redis.call('GET', fromKey); " + // 4. 查詢轉出帳戶餘額
-			"local toBalance = redis.call('GET', toKey); " + // 5. 查詢轉入帳戶餘額
-			"if not fromBalance or not toBalance then return -2 end; " + // 6. 若帳戶不存在則回傳 -2
-			"if tonumber(fromBalance) < amount then return -1 end; " + // 7. 若餘額不足則回傳 -1
-			"redis.call('DECRBY', fromKey, amount); " + // 8. 扣除轉出帳戶金額
-			"redis.call('INCRBY', toKey, amount); " + // 9. 增加轉入帳戶金額
-			"return 1;"; // 10. 全部成功，回傳 1
+//	private static final String TRANSFER_LUA = "local fromKey = KEYS[1]; " + // 1. 取得轉出帳戶 Key
+//			"local toKey = KEYS[2]; " + // 2. 取得轉入帳戶 Key
+//			"local amount = tonumber(ARGV[1]); " + // 3. 轉帳金額轉為數字
+//			"local fromBalance = redis.call('GET', fromKey); " + // 4. 查詢轉出帳戶餘額
+//			"local toBalance = redis.call('GET', toKey); " + // 5. 查詢轉入帳戶餘額
+//			"if not fromBalance or not toBalance then return -2 end; " + // 6. 若帳戶不存在則回傳 -2
+//			"if tonumber(fromBalance) < amount then return -1 end; " + // 7. 若餘額不足則回傳 -1
+//			"redis.call('DECRBY', fromKey, amount); " + // 8. 扣除轉出帳戶金額
+//			"redis.call('INCRBY', toKey, amount); " + // 9. 增加轉入帳戶金額
+//			"return 1;"; // 10. 全部成功，回傳 1
+	private static final String TRANSFER_LUA = "local amount = tonumber(ARGV[1]); " +
+			"local fromKey = ARGV[2]; " + // 顯式指定轉出帳號
+			"local toKey; " +
+//		    -- 透過判斷找出哪一個是轉入帳號
+			"if KEYS[1] == fromKey then toKey = KEYS[2] else toKey = KEYS[1] end; " +
+
+			"local fromBalance = redis.call('GET', fromKey); " +
+			"local toBalance = redis.call('GET', toKey); " +
+			"if not fromBalance or not toBalance then return -2 end; " +
+			"if tonumber(fromBalance) < amount then return -1 end; " +
+
+			"redis.call('DECRBY', fromKey, amount); " +
+			"redis.call('INCRBY', toKey, amount); " +
+			"return 1;";
 
 	/**
 	 * 預熱資料：模擬開始前，將 DB 資料同步至 Redis
@@ -295,7 +315,11 @@ public class BankRedisSimulationService {
 				while (fromId.equals(toId)) {
 					toId = String.format("account:A%05d", random.nextInt(10000) + 1);
 				}
-
+				// 對 Redis KEYS 進行排序：確保不論轉帳方向為何，資源鎖定順序一致，從而徹底防止分散式死結 (Deadlock)
+				List<Object> sortedKeys = Stream.of(fromId, toId)
+						.sorted()
+						.map(id -> (Object) id) // 強制轉為 Object
+						.toList();
 				String status = "UNKNOWN";
 				try {
 					// 執行 Lua 原子轉帳
@@ -303,8 +327,9 @@ public class BankRedisSimulationService {
 							RScript.Mode.READ_WRITE,
 							TRANSFER_LUA,
 							RScript.ReturnType.INTEGER,
-							List.of(fromId, toId),
-							10);
+							sortedKeys, // 現在這是 List<Object>
+							10, // ARGV[1] (會被自動裝箱為 Integer)
+							fromId); // ARGV[2] (String)
 
 					if (result == 1) {
 						successCount.incrementAndGet();

@@ -14,6 +14,7 @@ import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.support.serializer.JsonSerializer;
+import org.springframework.kafka.support.converter.BatchMessagingMessageConverter;
 // 新增這兩個 import
 import org.springframework.kafka.support.converter.StringJsonMessageConverter;
 import org.springframework.kafka.support.mapping.DefaultJackson2JavaTypeMapper;
@@ -42,7 +43,7 @@ public class KafkaConfig {
 	// 修改後的 Consumer 配置
 	// -----------------------------------------------------------------------
 	@Bean
-	public ConsumerFactory<String, String> consumerFactory() {
+	public ConsumerFactory<String, Object> consumerFactory() {
 		Map<String, Object> props = new HashMap<>();
 		props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
 		props.put(ConsumerConfig.GROUP_ID_CONFIG, "chart-cache-group");
@@ -54,20 +55,41 @@ public class KafkaConfig {
 		return new DefaultKafkaConsumerFactory<>(props);
 	}
 
+//	@Bean
+//	public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
+//		ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
+//		factory.setConsumerFactory(consumerFactory());
+//
+//		// 關鍵：設定 MessageConverter
+//		DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
+//		// 設定為 INFERRED：忽略 Producer 傳來的 TypeId Header，完全信任 @KafkaListener 方法的參數型別
+//		typeMapper.setTypePrecedence(DefaultJackson2JavaTypeMapper.TypePrecedence.INFERRED);
+//
+//		StringJsonMessageConverter converter = new StringJsonMessageConverter();
+//		converter.setTypeMapper(typeMapper);
+//		factory.setRecordMessageConverter(converter);
+//
+//		return factory;
+//	}
 	@Bean
-	public ConcurrentKafkaListenerContainerFactory<String, String> kafkaListenerContainerFactory() {
-		ConcurrentKafkaListenerContainerFactory<String, String> factory = new ConcurrentKafkaListenerContainerFactory<>();
-		factory.setConsumerFactory(consumerFactory());
+	public ConcurrentKafkaListenerContainerFactory<String, Object> kafkaListenerContainerFactory() {
+	    ConcurrentKafkaListenerContainerFactory<String, Object> factory = new ConcurrentKafkaListenerContainerFactory<>();
+	    factory.setConsumerFactory(consumerFactory());
 
-		// 關鍵：設定 MessageConverter
-		DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
-		// 設定為 INFERRED：忽略 Producer 傳來的 TypeId Header，完全信任 @KafkaListener 方法的參數型別
-		typeMapper.setTypePrecedence(DefaultJackson2JavaTypeMapper.TypePrecedence.INFERRED);
+	    // 開啟批次監聽模式
+	    factory.setBatchListener(true); 
 
-		StringJsonMessageConverter converter = new StringJsonMessageConverter();
-		converter.setTypeMapper(typeMapper);
-		factory.setRecordMessageConverter(converter);
+	    // 建立 TypeMapper 並設定推斷模式
+	    DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
+	    typeMapper.setTypePrecedence(DefaultJackson2JavaTypeMapper.TypePrecedence.INFERRED);
 
-		return factory;
+	    // 建立基礎的 Record 轉換器
+	    StringJsonMessageConverter recordConverter = new StringJsonMessageConverter();
+	    recordConverter.setTypeMapper(typeMapper);
+
+	    // 關鍵：將 Record 轉換器包裝成 Batch 轉換器以符合 BatchListener 需求
+	    factory.setBatchMessageConverter(new BatchMessagingMessageConverter(recordConverter));
+
+	    return factory;
 	}
 }

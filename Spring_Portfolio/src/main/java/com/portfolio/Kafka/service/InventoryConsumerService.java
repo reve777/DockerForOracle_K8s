@@ -14,8 +14,25 @@ import com.portfolio.Kafka.model.dto.OrderEvent;
 @ConditionalOnProperty(value = "kafka.enabled", havingValue = "true", matchIfMissing = false)
 public class InventoryConsumerService {
 
+	/**
+	 * 【重要：為什麼移除 @RetryableTopic？】
+	 * 
+	 * 1. 架構衝突：Spring Kafka 目前的非同步重試機制 (@RetryableTopic) 僅支援單筆 (Record) 模式。
+	 * 當配置為 setBatchListener(true) 時，底層適配器 (BatchMessagingMessageListenerAdapter)
+	 * 不符合重試機制的型別要求，會導致啟動時拋出 IllegalArgumentException。
+	 * 
+	 * 2. 效能考量：在處理 100 萬筆數據的高併發場景下，若批次中某一筆失敗導致整批重試，
+	 * 會產生嚴重的寫入重複與網路 IO 浪費。
+	 * 
+	 * 3. 錯誤處理建議：
+	 * 改用 try-catch 包裹 jdbcTemplate.batchUpdate，若發生失敗，
+	 * 應將整批或錯誤數據記錄至 Error Log Table (Oracle) 或專屬的死信隊列 (DLQ) 手動處理。
+	 * 
+	 * 
+	 * ###此註解與 Batch Listener 衝突，已移除
+	 */
 	// 設定重試 3 次，每次間隔 2 秒。失敗後送入 DLT。
-	@RetryableTopic(attempts = "3", backoff = @Backoff(delay = 2000), autoCreateTopics = "true")
+//	@RetryableTopic(attempts = "3", backoff = @Backoff(delay = 2000), autoCreateTopics = "true")
 	@KafkaListener(topics = "order-events", groupId = "inventory-group")
 	public void consumeOrder(OrderEvent event,
 			@Header(KafkaHeaders.RECEIVED_PARTITION) int partition) {
